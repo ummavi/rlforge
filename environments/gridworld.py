@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-from ../utils import uniform_random_choice
+from ..common.utils import uniform_random_choice
 
 
 class Gridworld:
