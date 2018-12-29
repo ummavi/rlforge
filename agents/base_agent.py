@@ -2,11 +2,22 @@ import numpy as np
 
 from abc import ABC
 from abc import abstractmethod
+from collections import defaultdict
 
 from rlforge.common.utils import Episode
 from rlforge.mixins.base_mixin import BaseMixin
 
+class StatsLogger:
+    """Simple wrapper over a dict to log agent information
+    """
+    def __init__(self):
+        self._data = defaultdict(lambda : [])
 
+    def append(self, key, ts, data):
+        self._data[key].append((ts,data))
+
+    def get(self, key):
+        return self._data[key]
 
 class BaseAgent(ABC):
     """Agent class template
@@ -14,17 +25,19 @@ class BaseAgent(ABC):
     def __init__(self, env):
         self.env = env
 
-        self.global_step_ts = 0 
-        self.global_episode_ts = 0 
+        self.global_step_ts = 0
+        self.global_episode_ts = 0
 
         self.pre_episode_hooks = []
         self.post_episode_hooks = []
         self.pre_step_hooks = []
-        self.post_step_hooks = [] 
-
+        self.post_step_hooks = []
 
         self.latest_episode = None
 
+        self.stats = StatsLogger()
+
+    @abstractmethod
     def act(self, state, greedy):
         """Template for act() for the agent. Must be overwritten
 
@@ -79,7 +92,7 @@ class BaseAgent(ABC):
 
                 #Pre step hook
                 for pre_step_hook in self.pre_step_hooks:
-                    pre_step_hook(self.global_step_ts+1)
+                    pre_step_hook(self.global_step_ts)
 
                 action = self.act(state, greedy=False)
 
@@ -96,8 +109,16 @@ class BaseAgent(ABC):
 
                 state = state_n
 
-            #Pre episode hooks
+            #Post episode hooks
             self.global_episode_ts += 1
             for post_episode_hook in self.post_episode_hooks:
                 post_episode_hook(self.global_episode_ts, episodes[-1])
+            
+            self.stats.append("episode_lengths",
+                                self.global_episode_ts,
+                                episodes[-1].length)
+
+            self.stats.append("episode_returns",
+                                self.global_episode_ts,
+                                np.sum(episodes[-1].rewards))
         return episodes

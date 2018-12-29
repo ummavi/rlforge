@@ -63,7 +63,10 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX,
             grads = tape.gradient(losses, self.model.trainable_weights)
             self.opt.apply_gradients(zip(grads,
                                        self.model.trainable_weights))
-        return losses 
+        
+        self.stats.append("step_losses",global_step_ts,losses)
+        self.stats.append("step_mean_q",global_step_ts,np.mean(preds))
+
 
 if __name__ == '__main__':
     from tqdm import tqdm
@@ -71,13 +74,13 @@ if __name__ == '__main__':
     from rlforge.environments.environment import Gym_env
 
     def train(agent, n_episodes):
-        train_returns = []
+        # Simple train function using tqdm to show progress
         pbar = tqdm(range(n_episodes))
         for i in pbar:
             e = agent.interact(1)
-            train_returns.append(np.sum(e[0].rewards))
-            pbar.set_description("Latest return:"+str(train_returns[-1]))
-        return train_returns
+            if i%50==0:
+                ts,last_50_rets = map(list, zip(*agent.stats.get("episode_returns")[-50:])) 
+                pbar.set_description("Latest return: "+str(np.mean(last_50_rets)))
 
     np.random.seed(0)
     tf.set_random_seed(0)   
@@ -89,5 +92,5 @@ if __name__ == '__main__':
                     replay_buffer_size=5000,
                     gamma=0.8,
                     eps=0.2,
-                    minibatch_size=128)
+                    minibatch_size=64)
     train(agent,2500)
