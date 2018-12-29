@@ -71,7 +71,7 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX,
 if __name__ == '__main__':
     from tqdm import tqdm
     from rlforge.common.q_functions import QNetwork
-    from rlforge.environments.environment import Gym_env
+    from rlforge.environments.environment import GymEnv
 
     def train(agent, n_episodes):
         # Simple train function using tqdm to show progress
@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     np.random.seed(0)
     tf.set_random_seed(0)   
-    env = Gym_env('CartPole-v0')
+    env = GymEnv('CartPole-v0')
     q_network = QNetwork(env.n_actions,env.d_observations,dict(layer_sizes=[24,24],
                         activation="relu"))
     agent = DQNAgent(env, q_network,policy_learning_rate=0.005,
