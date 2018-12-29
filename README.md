@@ -3,7 +3,7 @@
 RLForge is a lightweight framework to *quickly* and *cleanly* implement popular RL algorithms from literature as well as prototype new ones. Algorithms in RLForge are implemented using TensorFlow Eager but should be very easily modified to use libraries like PyTorch or Chainer. 
 
 
-This framework is inspired by [ChainerRL](https://github.com/chainer/chainerrl) and [OpenAI baselines](https://github.com/openai/baselines) and is an attempt to modularize the many components of an RL system so they can be combined in simple, readable way without excessive code duplication. This is achieved through the use of [Mixins](https://en.wikipedia.org/wiki/Mixin) where each "feature" is implemented in it's own encapsulated way and is automatically used by the agent as soon as it's added as a base class.
+This framework is inspired by [ChainerRL](https://github.com/chainer/chainerrl) and [OpenAI baselines](https://github.com/openai/baselines) and is an attempt to modularize the many components of an RL system so they can be combined in a simple, readable way without excessive code duplication. This is achieved through the use of [Mixins](https://en.wikipedia.org/wiki/Mixin) where each "feature" is implemented in its own encapsulated way and is automatically used by the agent as soon as it's added as a base class.
 
 
 ## Getting Started
@@ -44,8 +44,8 @@ A basic Q-Learning agent can be modified to use a replay buffer by simply modify
 ```python 
 class QLearningAgent(ExperienceReplayMX, BaseAgent):
 
-	def __init__(self, q_function, policy_learning_rate=0.001, gamma=0.8, 
-				replay_buffer_size=5000, minibatch_size=32):
+    def __init__(self, q_function, policy_learning_rate=0.001, gamma=0.8, 
+                replay_buffer_size=5000, minibatch_size=32):
 
         BaseAgent.__init__(self, env)
         ExperienceReplayMX.__init__(self, replay_buffer_size, minibatch_size)
@@ -63,8 +63,8 @@ class QLearningAgent(ExperienceReplayMX, BaseAgent):
         """Perform one step of learning with a batch of data
 
         post_step_hook Parameters:
-            global_step_ts (int)
-            step_data (tuple): (s,a,r,s',done)
+            global_step_ts (int): Current global step counter
+            step_data (tuple): A transition tuple (s,a,r,s',done)
         """
         states, actions, rewards, state_ns, dones = self.get_train_batch()
         rewards, dones = np.float32(rewards), np.float32(dones)
@@ -79,3 +79,20 @@ class QLearningAgent(ExperienceReplayMX, BaseAgent):
             grads = tape.gradient(losses, self.model.trainable_weights)
             self.opt.apply_gradients(zip(grads,self.model.trainable_weights))
 ```
+
+## Roadmap
+Whether this architecture choice holds up to more complex algorithms remains to be seen. Regardless, implementations of a number of standard Deep-RL algorithms followed by some multi-goal and multi-task algorithms is on the agenda.
+
+### Core 
+* Compatibility checks and dependencies for mixins
+* More debugging tools, sanity checks and warnings
+* Many more reusable mixins implementations! 
+
+### Algorithms 
+* Vanilla PG [+Baselines]
+* Double & Duelling DQN
+* C51 (and perhaps, it's successors)
+* DDPG 
+* PPO
+
+
