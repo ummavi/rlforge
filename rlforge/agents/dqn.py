@@ -90,7 +90,6 @@ if __name__ == '__main__':
     env = GymEnv('CartPole-v0')
     q_network = QNetworkDense(env.n_actions,dict(layer_sizes=[24,24],
                                                 activation="relu"))
-    
     agent = DQNAgent(env, q_network,policy_learning_rate=0.005,
                     target_network_update_freq=200, 
                     replay_buffer_size=5000,
