@@ -5,8 +5,7 @@ class ExperienceReplayMX(BaseMixin):
     """Experience Replay mixin 
     """
     def __init__(self, replay_buffer_size, minibatch_size):
-        """
-        """
+        BaseMixin.__init__(self)
         self.minibatch_size = minibatch_size
         self.replay_buffer = ReplayBuffer(replay_buffer_size)
         self.post_step_hooks.append(self.add_to_replay)

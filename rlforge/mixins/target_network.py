@@ -4,6 +4,7 @@ class TargetNetworkMX(BaseMixin):
     """Target Network Mixin 
     """
     def __init__(self, target_network_update_freq):
+        BaseMixin.__init__(self)
 
         self.target_network_update_freq = target_network_update_freq
 

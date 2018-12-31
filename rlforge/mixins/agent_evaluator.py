@@ -12,6 +12,8 @@ class AgentEvaluatorMX(BaseMixin):
         n_evaluate_episodes (int): How many episodes should it be evaluated over
         eval_freq (int): How often (episodes) should the agent be evaluate
         """
+        BaseMixin.__init__(self)
+        
         self.evaluate_freq = evaluate_freq
         self.n_evaluate_episodes = n_evaluate_episodes
         self.eval_render = render
