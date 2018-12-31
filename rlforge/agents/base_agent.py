@@ -19,6 +19,12 @@ class StatsLogger:
     def get(self, key):
         return self._data[key]
 
+    def get_values(self, key):
+        #Returns values without the timestamps
+        ts,vals = map(list, zip(*self._data[key]))
+        return vals
+
+
 class BaseAgent(ABC):
     """Agent class template
     """
