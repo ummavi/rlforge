@@ -14,6 +14,7 @@ class NetworkBlock(tf.keras.Model, ABC):
     def __init__(self, params):
         tf.keras.Model.__init__(self)
 
+        self.params = dict(self.default_params)
         self.params.update(params)
 
         self._layers = []
@@ -43,18 +44,17 @@ class NetworkBlock(tf.keras.Model, ABC):
 
 
 class ConvBlock(NetworkBlock):
+    default_params = dict(n_filters=[32, 64, 64],
+                            filter_sizes=[8, 4, 3],
+                            strides=[4, 2, 1],
+                            activation=tf.nn.relu,
+                            flatten_output=True)
+        
     def __init__(self, params=None):
         """Builds a convolutional block. 
         Default network parameters for the CNN layer(s).
             returns the Nature DQN config
-
         """
-        self.params = dict(n_filters=[32, 64, 64],
-                        filter_sizes=[8, 4, 3],
-                        strides=[4, 2, 1],
-                        activation=tf.nn.relu,
-                        flatten_output=True)
-
         NetworkBlock.__init__(self, params)
 
     def build_block(self):
@@ -74,9 +74,10 @@ class ConvBlock(NetworkBlock):
 class DenseBlock(NetworkBlock):
     """Builds a block of dense layers
     """
+    default_params = dict(layer_sizes=[256, 256], 
+                             activation=tf.nn.relu)
+
     def __init__(self, params):
-        self.params = dict(layer_sizes=[256, 256], 
-                        activation=tf.nn.relu)
         NetworkBlock.__init__(self, params)
 
     def build_block(self):
