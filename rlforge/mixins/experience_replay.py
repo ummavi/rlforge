@@ -1,9 +1,11 @@
-import numpy as np 
+import numpy as np
 from rlforge.mixins.base_mixin import BaseMixin
+
 
 class ExperienceReplayMX(BaseMixin):
     """Experience Replay mixin 
     """
+
     def __init__(self, replay_buffer_size, minibatch_size):
         BaseMixin.__init__(self)
         self.minibatch_size = minibatch_size
@@ -26,14 +28,11 @@ class ExperienceReplayMX(BaseMixin):
         return self.replay_buffer.sample(self.minibatch_size)
 
 
-
-
 class ReplayBuffer:
-    def __init__(self,max_size):
+    def __init__(self, max_size):
         self.max_size = max_size
         self.buffer = []
         self.next_loc = 0
-
 
     def append(self, state, action, reward, state_n,
                done, action_n=None):

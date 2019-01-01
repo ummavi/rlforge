@@ -5,29 +5,31 @@ from abc import abstractmethod
 from collections import defaultdict
 
 from rlforge.common.utils import Episode
-from rlforge.mixins.base_mixin import BaseMixin
+
 
 class StatsLogger:
     """Simple wrapper over a dict to log agent information
     """
+
     def __init__(self):
-        self._data = defaultdict(lambda : [])
+        self._data = defaultdict(lambda: [])
 
     def append(self, key, ts, data):
-        self._data[key].append((ts,data))
+        self._data[key].append((ts, data))
 
     def get(self, key):
         return self._data[key]
 
     def get_values(self, key):
-        #Returns values without the timestamps
-        ts,vals = map(list, zip(*self._data[key]))
+        # Returns values without the timestamps
+        ts, vals = map(list, zip(*self._data[key]))
         return vals
 
 
 class BaseAgent(ABC):
     """Agent class template
     """
+
     def __init__(self, env):
         self.env = env
 
@@ -59,7 +61,6 @@ class BaseAgent(ABC):
         """
         raise NotImplementedError()
 
-
     def save(self, dirname):
         """Save agent state to path
         """
@@ -69,7 +70,6 @@ class BaseAgent(ABC):
         """Load agent state from path
         """
         pass
-
 
     def get_train_batch(self):
         """
@@ -82,9 +82,9 @@ class BaseAgent(ABC):
         """
         episodes = []
         for i in range(n_episodes):
-            #Pre episode hooks
+            # Pre episode hooks
             for pre_episode_hook in self.pre_episode_hooks:
-                pre_episode_hook(self.global_episode_ts+1)
+                pre_episode_hook(self.global_episode_ts + 1)
 
             state = self.env.reset()
             episodes.append(Episode(state))
@@ -96,7 +96,7 @@ class BaseAgent(ABC):
             done = False
             while not done:
 
-                #Pre step hook
+                # Pre step hook
                 for pre_step_hook in self.pre_step_hooks:
                     pre_step_hook(self.global_step_ts)
 
@@ -107,7 +107,7 @@ class BaseAgent(ABC):
                 if render:
                     self.env.render()
 
-                #Post step hook
+                # Post step hook
                 self.global_step_ts += 1
                 step_data = (state, action, reward, state_n, done)
                 for post_step_hook in self.post_step_hooks:
@@ -115,16 +115,16 @@ class BaseAgent(ABC):
 
                 state = state_n
 
-            #Post episode hooks
+            # Post episode hooks
             self.global_episode_ts += 1
             for post_episode_hook in self.post_episode_hooks:
                 post_episode_hook(self.global_episode_ts, episodes[-1])
-            
+
             self.stats.append("episode_lengths",
-                                self.global_episode_ts,
-                                episodes[-1].length)
+                              self.global_episode_ts,
+                              episodes[-1].length)
 
             self.stats.append("episode_returns",
-                                self.global_episode_ts,
-                                np.sum(episodes[-1].rewards))
+                              self.global_episode_ts,
+                              np.sum(episodes[-1].rewards))
         return episodes
