@@ -27,6 +27,11 @@ class DoubleDQNAgent(DQNAgent):
             global_step_ts (int)
             step_data (tuple): (s,a,r,s',done)
         """
+
+        if global_step_ts<self.ts_start_learning:
+            return
+
+
         states, actions, rewards, state_ns, dones = self.get_train_batch()
         rewards, is_not_terminal = np.float32(rewards), np.float32(np.invert(dones))
 
@@ -35,23 +40,19 @@ class DoubleDQNAgent(DQNAgent):
         target_preds = self.target_model(state_ns)
         target_preds = tf.reduce_sum(target_preds * tf.one_hot(best_sn_actions, self.env.n_actions), axis=-1)
 
-
         q_target = rewards+(self.gamma*target_preds*is_not_terminal)
-
-    
 
         with tf.GradientTape() as tape:
             preds = self.model(states)
             q_cur = tf.reduce_sum(preds * tf.one_hot(actions, self.env.n_actions), axis=-1)
             losses = tf.losses.huber_loss(labels=q_target, predictions=q_cur)
+
             grads = tape.gradient(losses, self.model.trainable_weights)
             self.opt.apply_gradients(zip(grads,
                                        self.model.trainable_weights))
         
         self.stats.append("step_losses",global_step_ts,losses)
         self.stats.append("step_mean_q",global_step_ts,np.mean(preds))
-
-
 
 
 if __name__ == '__main__':
@@ -64,20 +65,23 @@ if __name__ == '__main__':
         pbar = tqdm(range(n_episodes))
         for i in pbar:
             e = agent.interact(1)
-            if i%50==0:
-                ts,last_50_rets = map(list, zip(*agent.stats.get("episode_returns")[-50:])) 
-                pbar.set_description("Latest return: "+str(np.mean(last_50_rets)))
+            if i%5==0:
+                last_5_rets = agent.stats.get_values("episode_returns")[-5:]
+                pbar.set_description("Latest return: "+str(np.mean(last_5_rets)))
+
+    env = GymEnv('CartPole-v0')
 
     np.random.seed(0)
-    tf.set_random_seed(0)   
-    env = GymEnv('CartPole-v0')
-    q_network = QNetworkDense(env.n_actions,dict(layer_sizes=[24,24],
-                                                activation="relu"))
-    agent = DoubleDQNAgent(env, q_network,policy_learning_rate=0.005,
-                    target_network_update_freq=200, 
-                    replay_buffer_size=5000,
+    tf.set_random_seed(0)
+    env.env.seed(0)
+
+    q_network = QNetworkDense(env.n_actions,dict(layer_sizes=[64,64],
+                                                activation="tanh"))
+    agent = DoubleDQNAgent(env, q_network,policy_learning_rate=0.0001,
+                    target_network_update_freq=300, 
+                    replay_buffer_size=10000,
                     gamma=0.8,
                     eps=0.2,
-                    minibatch_size=64)
-    train(agent,2500)
-
+                    minibatch_size=128)
+    train(agent,250)
+    print("Average Return (Train)",np.mean(agent.stats.get_values("episode_returns")))
