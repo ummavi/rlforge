@@ -83,7 +83,7 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX,
 
 if __name__ == '__main__':
     from tqdm import tqdm
-    from rlforge.common.q_functions import QNetworkDense
+    from rlforge.common.value_functions import QNetworkDense
     from rlforge.environments.environment import GymEnv
 
     def train(agent, n_episodes):
