@@ -20,6 +20,11 @@ class GymEnv:
         """Pass reset to the environment"""
         return self.env.reset()
 
-    def step(self,a):
-         observation, reward, done, _  = self.env.step(a)
-         return (observation, reward, done)
+    def step(self, a):
+        """Perform one step of the environment and drop the `info`"""
+        observation, reward, done, _  = self.env.step(a)
+        return (observation, reward, done)
+
+    def seed(self, seed):
+        """Seed te environment"""
+        self.env.seed(seed)
