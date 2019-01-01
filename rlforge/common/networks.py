@@ -75,7 +75,8 @@ class DenseBlock(NetworkBlock):
     """Builds a block of dense layers
     """
     default_params = dict(layer_sizes=[256, 256], 
-                             activation=tf.nn.relu)
+                          activation=tf.nn.relu,
+                          weight_initializer="glorot_uniform")
 
     def __init__(self, params):
         NetworkBlock.__init__(self, params)
@@ -85,7 +86,8 @@ class DenseBlock(NetworkBlock):
         """
         for layer_size in self.params["layer_sizes"]:
             layer = tf.keras.layers.Dense(layer_size, 
-                                    activation=self.params["activation"])
+                                    activation=self.params["activation"],
+                                    kernel_initializer=self.params["weight_initializer"])
             self._layers.append(layer)
 
 class Sequential(tf.keras.Sequential):
