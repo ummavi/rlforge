@@ -1,5 +1,5 @@
 import numpy as np 
-
+import tensorflow as tf
 
 from rlforge.agents.base_agent import BaseMixin
 
@@ -66,7 +66,7 @@ class SoftmaxPolicyMX(BaseMixin):
     def act(self, state, greedy):
         """Epsilon greedy policy:
         """
-        policy = self.model([state])[0]
+        policy = np.float32(tf.nn.softmax(self.model([state]))[0])
         if greedy:
             return np.argmax(policy)
         else:
