@@ -7,6 +7,7 @@ from rlforge.agents.base_agent import BaseAgent
 from rlforge.mixins.policies import SoftmaxPolicyMX
 from rlforge.common.utils import discounted_returns
 
+
 class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
     """
     Simple Episodic REINFORCE (Williams92) agent with discrete actions
@@ -39,7 +40,6 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
             self.baseline = baseline
             self.post_episode_hooks.append(self.learn_baseline)
 
-
     def learn_baseline(self, global_episode_ts, episode_data):
         """ Perform a step of training for the Monte-Carlo Value-function
         estimator.
@@ -50,7 +50,6 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
         """
         self.baseline.update_mc([episode_data])
         # self.baseline.update_td([episode_data])
-
 
     def learn(self, global_episode_ts, episode_data):
         """Perform one step of learning with a batch of data
@@ -110,12 +109,13 @@ if __name__ == '__main__':
     env.env.seed(0)
 
     gamma = 0.9
+    baseline_learning_rate = 0.001
 
-    policy = PolicyNetworkDense(env.n_actions, dict(layer_sizes=[64, 64],
-                                                    activation="tanh"))
+    policy_config = dict(layer_sizes=[64, 64], activation="tanh")
+    policy = PolicyNetworkDense(env.n_actions, policy_config)
 
     value_config = dict(layer_sizes=[64, 64], activation="tanh")
-    value_opt = tf.train.AdamOptimizer(0.001)
+    value_opt = tf.train.AdamOptimizer(baseline_learning_rate)
     value_baseline = VNetworkDense(value_config, value_opt, gamma)
 
     agent = REINFORCEAgent(env, policy,
