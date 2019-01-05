@@ -15,6 +15,26 @@ def smooth_signal(data, window_size=5, poly_order=2):
     return savgol_filter(data, window_size, poly_order)
 
 
+def discounted_returns(rewards, gamma, n_steps=None):
+    """ Return discounted rewards
+
+    Parameters:
+    rewards (np.array/list): Sequence of rewards
+    gamma (float): Discount factor
+    n_steps (int): n_step discounted returns. Default is returns till term.
+    """
+    discount_multipliers = np.power(gamma, np.arange(len(rewards)))
+    discounted_returns = []
+    for i in range(len(rewards)):
+        # If n_steps is None, index till the end of reward list
+        tend_index = None if n_steps is None else i+n_steps
+        future_rewards = np.float32(rewards[i:tend_index])
+        discount_multipliers = discount_multipliers[:len(future_rewards)]
+        discounted_return = np.sum(future_rewards * discount_multipliers)
+        discounted_returns.append(discounted_return)
+    return discounted_returns
+
+
 class Episode:
     """Simple class to log information an episode.
     """

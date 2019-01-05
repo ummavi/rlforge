@@ -5,7 +5,7 @@ tf.enable_eager_execution()
 
 from rlforge.agents.base_agent import BaseAgent
 from rlforge.mixins.policies import SoftmaxPolicyMX
-
+from rlforge.common.utils import discounted_returns
 
 class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
     """
@@ -37,23 +37,8 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
             self.baseline = lambda x: np.zeros(len(x))
         else:
             self.baseline = baseline
-            self.baseline_opt = tf.train.AdamOptimizer(baseline_learning_rate)
             self.post_episode_hooks.append(self.learn_baseline)
 
-    def get_discounted_returns(self, rewards):
-        """ Return discounted rewards
-        """
-
-        discount_multipliers = np.power(
-            self.gamma, np.arange(len(rewards)))
-        discounted_returns = []
-        for i in range(len(rewards)):
-            future_rewards = np.float32(rewards[i:])
-            discount_multipliers = discount_multipliers[:len(future_rewards)]
-            discounted_return = np.sum(future_rewards * discount_multipliers)
-            discounted_returns.append(discounted_return)
-
-        return np.float32(discounted_returns)
 
     def learn_baseline(self, global_episode_ts, episode_data):
         """ Perform a step of training for the Monte-Carlo Value-function
@@ -63,17 +48,9 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
             global_step_ts (int)
             episode_data (Episode)
         """
-        discounted_returns = self.get_discounted_returns(episode_data.rewards)
-        states = np.float32(episode_data.observations[:-1])
+        self.baseline.update_mc([episode_data])
+        # self.baseline.update_td([episode_data])
 
-        with tf.GradientTape() as tape:
-            preds = self.baseline(states)
-            discounted_returns = np.reshape(discounted_returns, (-1, 1))
-            losses = tf.losses.mean_squared_error(discounted_returns, preds)
-
-            grads = tape.gradient(losses, self.baseline.trainable_weights)
-            self.baseline_opt.apply_gradients(zip(grads,
-                                        self.baseline.trainable_weights))
 
     def learn(self, global_episode_ts, episode_data):
         """Perform one step of learning with a batch of data
@@ -83,23 +60,23 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
             episode_data (Episode)
         """
 
-        discounted_returns = self.get_discounted_returns(episode_data.rewards)
+        returns = discounted_returns(episode_data.rewards, gamma=self.gamma)
         states, actions = episode_data.observations[:-1], episode_data.actions
 
-        discounted_returns = discounted_returns - self.baseline(states)
+        returns = returns - self.baseline(states)
         with tf.GradientTape() as tape:
             probs = tf.nn.softmax(self.model(states))
-            logprobs = tf.log(probs)
+            logprobs = tf.log(probs + 1e-12)
 
             selected_logprobs = logprobs * \
                 tf.one_hot(actions, self.env.n_actions)
             selected_logprobs = tf.reduce_sum(selected_logprobs, axis=-1)
 
             average_entropy = tf.reduce_mean(
-                tf.reduce_sum(probs * logprobs, axis=1))
+                -tf.reduce_sum(probs * logprobs, axis=1))
 
-            losses = -tf.reduce_sum(selected_logprobs * discounted_returns)
-            losses += self.entropy_coeff * average_entropy
+            losses = -tf.reduce_sum(selected_logprobs * returns)
+            losses -= self.entropy_coeff * average_entropy
 
             grads = tape.gradient(losses, self.model.trainable_weights)
             self.opt.apply_gradients(zip(grads,
@@ -132,15 +109,19 @@ if __name__ == '__main__':
     tf.set_random_seed(0)
     env.env.seed(0)
 
+    gamma = 0.9
+
     policy = PolicyNetworkDense(env.n_actions, dict(layer_sizes=[64, 64],
                                                     activation="tanh"))
-    value_baseline = VNetworkDense(dict(layer_sizes=[64, 64],
-                                        activation="tanh"))
+
+    value_config = dict(layer_sizes=[64, 64], activation="tanh")
+    value_opt = tf.train.AdamOptimizer(0.001)
+    value_baseline = VNetworkDense(value_config, value_opt, gamma)
+
     agent = REINFORCEAgent(env, policy,
                            policy_learning_rate=0.001,
                            baseline=value_baseline,
-                           baseline_learning_rate=0.001,
-                           gamma=0.9, entropy_coeff=3)
+                           gamma=gamma, entropy_coeff=3)
     train(agent, 500)
     print("Average Return (Train)", np.mean(
         agent.stats.get_values("episode_returns")))
