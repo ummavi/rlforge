@@ -73,3 +73,29 @@ class SoftmaxPolicyMX(BaseMixin):
             return np.argmax(policy)
         else:
             return np.random.choice(self.env.n_actions, p=policy)
+
+
+class DistributionalPolicyMX(EpsilonGreedyPolicyMX):
+
+    def atom_probabilities(self, state_batch):
+        """Get atom probabilities.
+        """
+        return tf.nn.softmax(self.model(state_batch))
+
+    def q_values(self, state_batch):
+        """
+        """
+        probs = self.atom_probabilities(state_batch)
+        return np.dot(probs, np.transpose(self.z))
+
+    def act(self, state, greedy):
+        """Epsilon greedy policy:
+        """
+        eps_current = max((self.eps_start - self.ts_eps *
+                           self.eps_delta), self.eps_end)
+        if greedy or np.random.uniform() > eps_current:
+            # q_values = self.model([state])[0]
+            q_values = self.q_values([state])[0]
+            return np.argmax(q_values)
+        else:
+            return np.random.choice(self.env.n_actions)
