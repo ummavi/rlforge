@@ -1,9 +1,9 @@
 # RLForge
 
-RLForge is a lightweight framework to *quickly* and *cleanly* implement popular RL algorithms from literature as well as prototype new ones. Algorithms in RLForge are implemented using TensorFlow Eager but should be very easily modified to use libraries like PyTorch or Chainer. 
+RLForge is a project and framework to *quickly* and *cleanly* implement popular RL algorithms from literature as well as prototype new ones. Algorithms in RLForge are implemented using TensorFlow Eager but should be very easily modified to use libraries like PyTorch or Chainer. 
 
 
-This framework is inspired by [ChainerRL](https://github.com/chainer/chainerrl) and [OpenAI baselines](https://github.com/openai/baselines) and is an attempt to modularize the many components of an RL system so they can be combined in a simple, readable way without excessive code duplication. This is achieved through the use of [Mixins](https://en.wikipedia.org/wiki/Mixin) where each "feature" is implemented in its own encapsulated way and is automatically used by the agent as soon as it's added as a base class.
+This framework is inspired by [ChainerRL](https://github.com/chainer/chainerrl) and [OpenAI baselines](https://github.com/openai/baselines) and is an attempt to modularize the many components of an RL system so they can be combined in a simple, readable way without excessive code duplication. This is attempted through through the use of [Mixins](https://en.wikipedia.org/wiki/Mixin) where each "feature" is implemented in its own encapsulated way and is automatically used by the agent as soon as it's added as a base class.
 
 
 ## Getting Started
@@ -79,9 +79,16 @@ class QLearningAgent(ExperienceReplayMX, BaseAgent):
             grads = tape.gradient(losses, self.model.trainable_weights)
             self.opt.apply_gradients(zip(grads,self.model.trainable_weights))
 ```
+## Currently Implemented
+### Algorithms 
+* DQN (And Double DQN)
+* Vanilla PG [+Baseline] (Only discrete actions)
+* A2C (Without distributed execution and Shared network)
+
+
 
 ## Roadmap
-Whether this architecture choice holds up to more complex algorithms remains to be seen. Regardless, implementations of a number of standard Deep-RL algorithms followed by some multi-goal and multi-task algorithms is on the agenda.
+Whether this architecture choice holds up to more complex algorithms remains to be seen. Regardless, implementations of a number of standard Deep-RL algorithms followed by papers from HRL and multi-task, multi-goal RL that I find interesting.
 
 ### Core 
 * Compatibility checks and dependencies for mixins
@@ -89,10 +96,7 @@ Whether this architecture choice holds up to more complex algorithms remains to 
 * Many more reusable mixins implementations! 
 
 ### Algorithms 
-* Vanilla PG [+Baselines]
 * Double & Duelling DQN
-* C51 (and perhaps, it's successors)
+* C51
 * DDPG 
 * PPO
-
-
