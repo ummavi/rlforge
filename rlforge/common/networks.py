@@ -112,4 +112,12 @@ class Sequential(tf.keras.Sequential):
     def clone(self):
         """Clones the entire sequential block 
         """
-        return Sequential([block.clone() for block in self._blocks])
+        cloned_blocks = []
+        for block in self._blocks:
+            try:
+                cloned_blocks.append(block.clone())
+            except Exception:
+                print("WARN: Could not clone", block, " reused instead")
+                cloned_blocks.append(block)
+        return Sequential(cloned_blocks)
+        

@@ -35,6 +35,11 @@ def discounted_returns(rewards, gamma, n_steps=None):
     return discounted_returns
 
 
+
+def one_hot(a, num_classes):
+    return np.squeeze(np.eye(num_classes)[a.reshape(-1)])
+
+
 class Episode:
     """Simple class to log information an episode.
     """
