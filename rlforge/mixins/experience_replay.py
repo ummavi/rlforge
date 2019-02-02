@@ -34,8 +34,7 @@ class ReplayBuffer:
         self.buffer = []
         self.next_loc = 0
 
-    def append(self, state, action, reward, state_n,
-               done, action_n=None):
+    def append(self, state, action, reward, state_n, done, action_n=None):
         """Adds a transition to replay buffer
         """
 

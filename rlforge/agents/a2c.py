@@ -22,8 +22,14 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
     * Shared network layers
     """
 
-    def __init__(self, env, model, policy_learning_rate,
-                 v_function, gamma=0.9, entropy_coeff=3, n_workers=2):
+    def __init__(self,
+                 env,
+                 model,
+                 policy_learning_rate,
+                 v_function,
+                 gamma=0.9,
+                 entropy_coeff=3,
+                 n_workers=2):
         """
         Parameters:
         model: A callable model with the final layer being identity.
@@ -51,8 +57,7 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
         Note: Returns are *inclusive* of current timestep
               G_t = r_t + r_{t+1}....
         """
-        discount_multipliers = np.power(
-            self.gamma, np.arange(len(rewards)))
+        discount_multipliers = np.power(self.gamma, np.arange(len(rewards)))
         discounted_returns = []
         for i in range(len(rewards)):
             future_rewards = np.float32(rewards[i:])
@@ -105,17 +110,19 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
             grads = tape.gradient(losses, self.model.trainable_weights)
             if (global_episode_ts - 1) % self.n_workers == 0:
                 if self.accumulated_grads is not None:
-                    self.opt.apply_gradients(zip(self.accumulated_grads,
-                                                 self.model.trainable_weights))
+                    self.opt.apply_gradients(
+                        zip(self.accumulated_grads,
+                            self.model.trainable_weights))
                 self.accumulated_grads = grads
             else:
                 self.accumulated_grads = [
-                    ag + g for g, ag in zip(grads, self.accumulated_grads)]
+                    ag + g for g, ag in zip(grads, self.accumulated_grads)
+                ]
 
-        self.stats.append("episode_average_entropy",
-                          global_episode_ts, average_entropy)
-        self.stats.append("episode_average_advantage",
-                          global_episode_ts, np.mean(advantage))
+        self.stats.append("episode_average_entropy", global_episode_ts,
+                          average_entropy)
+        self.stats.append("episode_average_advantage", global_episode_ts,
+                          np.mean(advantage))
 
         self.stats.append("episode_losses", global_episode_ts, losses)
 
@@ -152,10 +159,14 @@ if __name__ == '__main__':
     value_opt = tf.train.AdamOptimizer(value_learning_rate)
     value_baseline = VNetworkDense(value_config, value_opt, gamma, n_steps=5)
 
-    agent = A2CAgent(env, policy,
-                     policy_learning_rate=0.001,
-                     v_function=value_baseline,
-                     gamma=gamma, entropy_coeff=3, n_workers=2)
+    agent = A2CAgent(
+        env,
+        policy,
+        policy_learning_rate=0.001,
+        v_function=value_baseline,
+        gamma=gamma,
+        entropy_coeff=3,
+        n_workers=2)
     train(agent, 500)
-    print("Average Return (Train)", np.mean(
-        agent.stats.get_values("episode_returns")))
+    print("Average Return (Train)",
+          np.mean(agent.stats.get_values("episode_returns")))

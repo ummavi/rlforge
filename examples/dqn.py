@@ -9,6 +9,7 @@ from rlforge.agents.dqn import DQNAgent
 from rlforge.common.value_functions import QNetworkDense
 from rlforge.environments.environment import GymEnv
 
+
 def train(agent, n_episodes):
     # Simple train function using tqdm to show progress
     pbar = tqdm(range(n_episodes))
@@ -16,9 +17,7 @@ def train(agent, n_episodes):
         agent.interact(1)
         if i % 5 == 0:
             last_5_rets = agent.stats.get_values("episode_returns")[-5:]
-            pbar.set_description("Latest return: " +
-                                 str(np.mean(last_5_rets)))
-
+            pbar.set_description("Latest return: " + str(np.mean(last_5_rets)))
 
 
 if __name__ == '__main__':
@@ -33,14 +32,16 @@ if __name__ == '__main__':
 
     q_config = dict(layer_sizes=[64, 64], activation="tanh")
     q_opt = tf.train.AdamOptimizer(policy_learning_rate)
-    q_network = QNetworkDense(q_config, q_opt, gamma)
+    q_network = QNetworkDense(env.n_actions, q_config, q_opt, gamma)
 
-    agent = DQNAgent(env, q_network, policy_learning_rate=policy_learning_rate,
-                     replay_buffer_size=10000,
-                     target_network_update_freq=300,
-                     gamma=0.8,
-                     eps=0.2,
-                     minibatch_size=128)
+    agent = DQNAgent(
+        env,
+        q_network,
+        replay_buffer_size=10000,
+        target_network_update_freq=300,
+        gamma=0.8,
+        eps=0.2,
+        minibatch_size=128)
     train(agent, 250)
-    print("Average Return (Train)", np.mean(
-        agent.stats.get_values("episode_returns")))
+    print("Average Return (Train)",
+          np.mean(agent.stats.get_values("episode_returns")))

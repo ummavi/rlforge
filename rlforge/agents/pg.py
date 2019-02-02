@@ -16,9 +16,14 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
     See examples/reinforce.py for example agent
     """
 
-    def __init__(self, env, model, policy_learning_rate,
-                 baseline=None, baseline_learning_rate=None,
-                 gamma=0.9, entropy_coeff=0.0):
+    def __init__(self,
+                 env,
+                 model,
+                 policy_learning_rate,
+                 baseline=None,
+                 baseline_learning_rate=None,
+                 gamma=0.9,
+                 entropy_coeff=0.0):
         """
         Parameters:
         model: A callable model with the final layer being identity.
@@ -77,15 +82,14 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
             selected_logprobs = tf.reduce_sum(selected_logprobs, axis=-1)
 
             average_entropy = tf.reduce_mean(
-                                self.policy_entropy(numerical_pref))
+                self.policy_entropy(numerical_pref))
 
             losses = -tf.reduce_sum(selected_logprobs * returns)
             losses -= self.entropy_coeff * average_entropy
 
             grads = tape.gradient(losses, self.model.trainable_weights)
-            self.opt.apply_gradients(zip(grads,
-                                         self.model.trainable_weights))
+            self.opt.apply_gradients(zip(grads, self.model.trainable_weights))
 
-        self.stats.append("episode_average_entropy",
-                          global_episode_ts, average_entropy)
+        self.stats.append("episode_average_entropy", global_episode_ts,
+                          average_entropy)
         self.stats.append("episode_losses", global_episode_ts, losses)

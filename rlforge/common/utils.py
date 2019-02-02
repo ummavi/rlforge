@@ -27,13 +27,12 @@ def discounted_returns(rewards, gamma, n_steps=None):
     discounted_returns = []
     for i in range(len(rewards)):
         # If n_steps is None, index till the end of reward list
-        tend_index = None if n_steps is None else i+n_steps
+        tend_index = None if n_steps is None else i + n_steps
         future_rewards = np.float32(rewards[i:tend_index])
         discount_multipliers = discount_multipliers[:len(future_rewards)]
         discounted_return = np.sum(future_rewards * discount_multipliers)
         discounted_returns.append(discounted_return)
     return discounted_returns
-
 
 
 def one_hot(a, num_classes):
@@ -70,9 +69,8 @@ class Episode:
     def sarsd_iterator(self):
         """Return a (s,a,r,s',done) iterator to the episode
         """
-        return zip(self.observations[:-1], self.actions,
-                   self.rewards, self.observations[1:],
-                   self.dones)
+        return zip(self.observations[:-1], self.actions, self.rewards,
+                   self.observations[1:], self.dones)
 
     def finish_episode(self):
         """Marks an episode as having terminated.

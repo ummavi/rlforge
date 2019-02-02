@@ -2,15 +2,14 @@ import numpy as np
 import tensorflow as tf
 tf.enable_eager_execution()
 
-from rlforge.common.utils import Episode
 from rlforge.agents.base_agent import BaseAgent
 from rlforge.mixins.policies import EpsilonGreedyPolicyMX
 from rlforge.mixins.experience_replay import ExperienceReplayMX
 from rlforge.mixins.target_network import TargetNetworkMX
 
 
-class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX,
-               TargetNetworkMX, BaseAgent):
+class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,
+               BaseAgent):
     """Deep-Q Network agent
 
     Implementation of the DQN agent as described in the nature paper
@@ -28,24 +27,36 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX,
 
     """
 
-    def __init__(self, env, q_function,
-                 replay_buffer_size, target_network_update_freq,
-                 minibatch_size=32, gamma=0.98, ts_start_learning=200,
-                 eps=0.2, eps_schedule=None, eps_start=None,
-                 eps_end=None, ts_eps_end=None):
+    def __init__(self,
+                 env,
+                 q_function,
+                 replay_buffer_size,
+                 target_network_update_freq,
+                 minibatch_size=32,
+                 gamma=0.98,
+                 ts_start_learning=200,
+                 eps=0.2,
+                 eps_schedule=None,
+                 eps_start=None,
+                 eps_end=None,
+                 ts_eps_end=None):
 
-        self.model = q_function
+        self.network = q_function
+        self.network.set_loss_fn(tf.losses.huber_loss)
+
         self.gamma = gamma
         self.ts_start_learning = ts_start_learning
 
         BaseAgent.__init__(self, env)
         ExperienceReplayMX.__init__(self, replay_buffer_size, minibatch_size)
         TargetNetworkMX.__init__(self, target_network_update_freq)
-        EpsilonGreedyPolicyMX.__init__(self, eps_fixed=eps,
-                                       eps_schedule=eps_schedule,
-                                       eps_start=eps_start, eps_end=eps_end,
-                                       ts_eps_end=ts_eps_end)
-
+        EpsilonGreedyPolicyMX.__init__(
+            self,
+            eps_fixed=eps,
+            eps_schedule=eps_schedule,
+            eps_start=eps_start,
+            eps_end=eps_end,
+            ts_eps_end=ts_eps_end)
 
         # DQN trains after every step so add it to the post_episode hook
         self.post_step_hooks.append(self.learn)
@@ -62,22 +73,13 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX,
             return
 
         states, actions, rewards, state_ns, dones = self.get_train_batch()
-        rewards, is_not_terminal = np.float32(
-            rewards), np.float32(np.invert(dones))
+        rewards, is_not_terminal = np.float32(rewards), np.float32(
+            np.invert(dones))
 
-        q_star = tf.reduce_max(self.target_model(state_ns), axis=-1)
-        q_target = rewards + (self.gamma * q_star * is_not_terminal)
+        q_stars = tf.reduce_max(self.target_network(state_ns), axis=-1)
+        q_targets = rewards + (self.gamma * q_stars * is_not_terminal)
 
-        with tf.GradientTape() as tape:
-            preds = self.model(states)
-            q_cur = tf.reduce_sum(
-                preds * tf.one_hot(actions, self.env.n_actions), axis=-1)
-            losses = tf.losses.huber_loss(labels=q_target, predictions=q_cur)
-
-            grads = tape.gradient(losses, self.model.trainable_weights)
-            self.opt.apply_gradients(zip(grads,
-                                         self.model.trainable_weights))
+        preds, losses = self.network.update_q(states, actions, q_targets)
 
         self.stats.append("step_losses", global_step_ts, losses)
         self.stats.append("step_mean_q", global_step_ts, np.mean(preds))
-

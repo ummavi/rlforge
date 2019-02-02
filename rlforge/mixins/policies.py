@@ -8,8 +8,12 @@ class EpsilonGreedyPolicyMX(BaseMixin):
     """Epsilon-Greedy policy with or w/o an epslion schedule
     """
 
-    def __init__(self, eps_fixed=0.2, episodic_update=False,
-                 eps_start=None, eps_end=None, ts_eps_end=None,
+    def __init__(self,
+                 eps_fixed=0.2,
+                 episodic_update=False,
+                 eps_start=None,
+                 eps_end=None,
+                 ts_eps_end=None,
                  eps_schedule=None):
         """
         Parameters:
@@ -45,10 +49,10 @@ class EpsilonGreedyPolicyMX(BaseMixin):
     def act(self, state, greedy):
         """Epsilon greedy policy:
         """
-        eps_current = max((self.eps_start - self.ts_eps *
-                           self.eps_delta), self.eps_end)
+        eps_current = max((self.eps_start - self.ts_eps * self.eps_delta),
+                          self.eps_end)
         if greedy or np.random.uniform() > eps_current:
-            q_values = self.model([state])[0]
+            q_values = self.network([state])[0]
             return np.argmax(q_values)
         else:
             return np.random.choice(self.env.n_actions)
@@ -94,6 +98,7 @@ class SoftmaxPolicyMX(BaseMixin):
 class DistributionalPolicyMX(EpsilonGreedyPolicyMX):
     """
     """
+
     def atom_probabilities(self, state_batch):
         """Get atom probabilities.
         """
@@ -108,11 +113,11 @@ class DistributionalPolicyMX(EpsilonGreedyPolicyMX):
     def act(self, state, greedy):
         """Epsilon greedy policy:
         """
-        eps_current = max((self.eps_start - self.ts_eps *
-                           self.eps_delta), self.eps_end)
+        eps_current = max((self.eps_start - self.ts_eps * self.eps_delta),
+                          self.eps_end)
         if greedy or np.random.uniform() > eps_current:
             # q_values = self.model([state])[0]
-            q_values = self.q_values([state])[0]
+            q_values = self.network([state])[0]
             return np.argmax(q_values)
         else:
             return np.random.choice(self.env.n_actions)

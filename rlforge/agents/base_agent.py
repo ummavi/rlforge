@@ -120,11 +120,9 @@ class BaseAgent(ABC):
             for post_episode_hook in self.post_episode_hooks:
                 post_episode_hook(self.global_episode_ts, episodes[-1])
 
-            self.stats.append("episode_lengths",
-                              self.global_episode_ts,
+            self.stats.append("episode_lengths", self.global_episode_ts,
                               episodes[-1].length)
 
-            self.stats.append("episode_returns",
-                              self.global_episode_ts,
+            self.stats.append("episode_returns", self.global_episode_ts,
                               np.sum(episodes[-1].rewards))
         return episodes

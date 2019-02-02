@@ -17,24 +17,31 @@ def train(agent, n_episodes):
         agent.interact(1)
         if i % 5 == 0:
             last_5_rets = agent.stats.get_values("episode_returns")[-5:]
-            pbar.set_description("Latest return: " +
-                                 str(np.mean(last_5_rets)))
+            pbar.set_description("Latest return: " + str(np.mean(last_5_rets)))
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     env = GymEnv('CartPole-v0')
 
     np.random.seed(0)
     tf.set_random_seed(0)
     env.env.seed(0)
 
-    q_network = QNetworkDense(env.n_actions, dict(layer_sizes=[64, 64],
-                                                  activation="tanh"))
-    agent = DoubleDQNAgent(env, q_network, policy_learning_rate=0.0001,
-                           target_network_update_freq=300,
-                           replay_buffer_size=10000,
-                           gamma=0.8,
-                           eps=0.2,
-                           minibatch_size=128)
+    policy_learning_rate = 0.0001
+    gamma = 0.8
+
+    q_config = dict(layer_sizes=[64, 64], activation="tanh")
+    q_opt = tf.train.AdamOptimizer(policy_learning_rate)
+    q_network = QNetworkDense(env.n_actions, q_config, q_opt, gamma)
+
+    agent = DoubleDQNAgent(
+        env,
+        q_network,
+        replay_buffer_size=10000,
+        target_network_update_freq=300,
+        gamma=0.8,
+        eps=0.2,
+        minibatch_size=128)
     train(agent, 250)
-    print("Average Return (Train)", np.mean(
-        agent.stats.get_values("episode_returns")))
+    print("Average Return (Train)",
+          np.mean(agent.stats.get_values("episode_returns")))

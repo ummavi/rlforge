@@ -1,8 +1,10 @@
 from rlforge.mixins.base_mixin import BaseMixin
 
+
 class TargetNetworkMX(BaseMixin):
     """Target Network Mixin 
     """
+
     def __init__(self, target_network_update_freq):
         BaseMixin.__init__(self)
 
@@ -16,7 +18,7 @@ class TargetNetworkMX(BaseMixin):
     def create_target_network(self):
         """Clone the network
         """
-        self.target_model =  self.model.clone()
+        self.target_network = self.network.clone()
 
     def update_target_network(self, global_step_ts, step_data):
         """update the target network's weights every few steps.
@@ -24,5 +26,5 @@ class TargetNetworkMX(BaseMixin):
             global_step_ts (int)
             step_data (tuple): (s,a,r,s',done)
         """
-        if global_step_ts%self.target_network_update_freq == 0:
-            self.target_model.set_weights(self.model.get_weights())
+        if global_step_ts % self.target_network_update_freq == 0:
+            self.target_network.set_weights(self.network.get_weights())
