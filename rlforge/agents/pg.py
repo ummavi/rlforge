@@ -13,6 +13,7 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
     Simple Episodic REINFORCE (Williams92) agent with discrete actions
     and a softmax policy.
 
+    See examples/reinforce.py for example agent
     """
 
     def __init__(self, env, model, policy_learning_rate,
@@ -64,15 +65,19 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
 
         returns = returns - self.baseline(states)
         with tf.GradientTape() as tape:
-            probs = tf.nn.softmax(self.model(states))
-            logprobs = tf.log(probs + 1e-12)
+            # Obtain the numerical preferences from the model.
+            # .. Depending on the policy, this could be output to
+            # .. the softmax or the parameters of the gaussian
+            # .. the name's from Sutton & Barto 2nd ed.
+            numerical_pref = self.model(states)
 
+            logprobs = self.logprobs(numerical_pref)
             selected_logprobs = logprobs * \
                 tf.one_hot(actions, self.env.n_actions)
             selected_logprobs = tf.reduce_sum(selected_logprobs, axis=-1)
 
             average_entropy = tf.reduce_mean(
-                -tf.reduce_sum(probs * logprobs, axis=1))
+                                self.policy_entropy(numerical_pref))
 
             losses = -tf.reduce_sum(selected_logprobs * returns)
             losses -= self.entropy_coeff * average_entropy
@@ -84,44 +89,3 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
         self.stats.append("episode_average_entropy",
                           global_episode_ts, average_entropy)
         self.stats.append("episode_losses", global_episode_ts, losses)
-
-
-if __name__ == '__main__':
-    from tqdm import tqdm
-    from rlforge.common.policy_functions import PolicyNetworkDense
-    from rlforge.common.value_functions import VNetworkDense
-    from rlforge.environments.environment import GymEnv
-
-    def train(agent, n_episodes):
-        # Simple train function using tqdm to show progress
-        pbar = tqdm(range(n_episodes))
-        for i in pbar:
-            _ = agent.interact(1)
-            if i % 5 == 0:
-                last_5_rets = agent.stats.get_values("episode_returns")[-5:]
-                pbar.set_description("Latest return: " +
-                                     str(np.mean(last_5_rets)))
-
-    env = GymEnv('CartPole-v0')
-
-    np.random.seed(0)
-    tf.set_random_seed(0)
-    env.env.seed(0)
-
-    gamma = 0.9
-    baseline_learning_rate = 0.001
-
-    policy_config = dict(layer_sizes=[64, 64], activation="tanh")
-    policy = PolicyNetworkDense(env.n_actions, policy_config)
-
-    value_config = dict(layer_sizes=[64, 64], activation="tanh")
-    value_opt = tf.train.AdamOptimizer(baseline_learning_rate)
-    value_baseline = VNetworkDense(value_config, value_opt, gamma)
-
-    agent = REINFORCEAgent(env, policy,
-                           policy_learning_rate=0.001,
-                           baseline=value_baseline,
-                           gamma=gamma, entropy_coeff=3)
-    train(agent, 500)
-    print("Average Return (Train)", np.mean(
-        agent.stats.get_values("episode_returns")))

@@ -17,6 +17,8 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX, TargetNetworkMX
 
     TODO:
     * Optimize projection code.
+
+    See examples/categorical_dqn.py for example agent
     """
 
     def __init__(self, env, q_function, policy_learning_rate,
@@ -106,55 +108,10 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX, TargetNetworkMX
             logp = tf.nn.log_softmax(self.model(states))
             a_mask = tf.expand_dims(tf.one_hot(
                 actions, self.env.n_actions), axis=2)
-            a_mask = tf.tile(a_mask,[1,1,self.n_atoms])
+            a_mask = tf.tile(a_mask, [1, 1, self.n_atoms])
             logp_selected = tf.reduce_sum(logp * a_mask, axis=1)
             losses = tf.reduce_mean(-tf.reduce_sum(m * logp_selected, axis=-1))
 
             grads = tape.gradient(losses, self.model.trainable_weights)
             self.opt.apply_gradients(zip(grads,
                                          self.model.trainable_weights))
-
-
-from rlforge.common.networks import DenseBlock, Sequential
-def ParametericNetworkDense(n_actions, n_atoms, network_config):
-    final_layer_config = dict(network_config)
-    final_layer_config.update(dict(layer_sizes=[n_atoms * n_actions],
-                                   activation="linear"))
-    return Sequential([DenseBlock(params=network_config),
-                       DenseBlock(params=final_layer_config),
-                       tf.keras.layers.Reshape([n_actions, n_atoms])])
-
-
-if __name__ == '__main__':
-    from tqdm import tqdm
-    from rlforge.common.value_functions import QNetworkDense
-    from rlforge.environments.environment import GymEnv
-
-    def train(agent, n_episodes):
-        # Simple train function using tqdm to show progress
-        pbar = tqdm(range(n_episodes))
-        for i in pbar:
-            e = agent.interact(1)
-            if i % 5 == 0:
-                last_5_rets = agent.stats.get_values("episode_returns")[-5:]
-                pbar.set_description("Latest return: " +
-                                     str(np.mean(last_5_rets)))
-
-    n_atoms = 51
-    env = GymEnv('CartPole-v0')
-
-    np.random.seed(0)
-    tf.set_random_seed(0)
-    env.env.seed(0)
-
-    q_network = ParametericNetworkDense(env.n_actions, n_atoms, dict(layer_sizes=[64, 64],
-                                                                     activation="tanh"))
-    agent = CategoricalDQN(env, q_network, policy_learning_rate=0.005,
-                           replay_buffer_size=10000, target_network_update_freq=200,
-                           gamma=0.8,
-                           eps=0.2,
-                           minibatch_size=128,
-                           n_atoms=n_atoms)
-    train(agent, 100)
-    print("Average Return (Train)", np.mean(
-        agent.stats.get_values("episode_returns")))
