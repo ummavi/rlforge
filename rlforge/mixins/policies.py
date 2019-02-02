@@ -9,10 +9,12 @@ class EpsilonGreedyPolicyMX(BaseMixin):
     """
 
     def __init__(self, eps_fixed=0.2, episodic_update=False,
-                 eps_start=None, eps_end=None, ts_eps_end=None, eps_schedule=None):
+                 eps_start=None, eps_end=None, ts_eps_end=None,
+                 eps_schedule=None):
         """
         Parameters:
-        eps_schedule {None | "linear"}: Chooses between a fixed learning rate and a decay schedule
+        eps_schedule {None | "linear"}: Chooses between a fixed learning
+                                         rate and a decay schedule
         """
         assert eps_schedule in [None, "linear"]
         BaseMixin.__init__(self)
@@ -52,7 +54,7 @@ class EpsilonGreedyPolicyMX(BaseMixin):
             return np.random.choice(self.env.n_actions)
 
     def update_eps(self, global_any_ts, any_data):
-        """Updates the eps-greedy timestep. 
+        """Updates the eps-greedy timestep.
         This can be either a post-episode or a post-step ook.
         """
         self.ts_eps += 1
@@ -68,15 +70,30 @@ class SoftmaxPolicyMX(BaseMixin):
     def act(self, state, greedy):
         """Epsilon greedy policy:
         """
-        policy = np.float32(tf.nn.softmax(self.model([state]))[0])
+        numerical_pref = self.model([state])
+        policy_probs = np.float32(self.probs(numerical_pref)[0])
         if greedy:
-            return np.argmax(policy)
+            return np.argmax(policy_probs)
         else:
-            return np.random.choice(self.env.n_actions, p=policy)
+            return np.random.choice(self.env.n_actions, p=policy_probs)
+
+    def probs(self, numerical_pref):
+        return tf.nn.softmax(numerical_pref)
+
+    def logprobs(self, numerical_pref):
+        """Get log probabilities of policy.
+        """
+        return tf.nn.log_softmax(numerical_pref)
+
+    def policy_entropy(self, numerical_pref):
+        probs = self.probs(numerical_pref)
+        logprobs = self.logprobs(numerical_pref)
+        return -tf.reduce_sum(probs * logprobs, axis=1)
 
 
 class DistributionalPolicyMX(EpsilonGreedyPolicyMX):
-
+    """
+    """
     def atom_probabilities(self, state_batch):
         """Get atom probabilities.
         """
