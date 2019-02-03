@@ -7,8 +7,15 @@ class GymEnv:
     """
     def __init__(self,gym_env_string):
         self.env = gym.make(gym_env_string)
+        try:
+            self.n_actions = self.env.action_space.n
+            self.action_space = "discrete"
 
-        self.n_actions = self.env.action_space.n
+        except Exception:
+            #If it doesn't exist, it's probably a continuous env
+            self.n_actions = self.env.action_space.shape[0]
+            self.action_space = "continuous"
+
         self.d_observations = list(self.env.observation_space.shape)
 
 
