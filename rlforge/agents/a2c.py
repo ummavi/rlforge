@@ -51,6 +51,8 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
 
         self.accumulated_grads = None
 
+        self.model_list = [self.model]
+
     def get_discounted_returns(self, rewards):
         """ Return discounted rewards
 

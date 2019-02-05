@@ -65,6 +65,8 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
         # DQN trains after every step so add it to the post_episode hook
         self.post_step_hooks.append(self.learn)
 
+        self.model_list = [self.model]
+        
     def categorical_projection(self, state_ns, rewards, is_not_terminal):
         """
         Applies the categorical projection listed under algorithm 1.

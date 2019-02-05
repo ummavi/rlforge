@@ -22,7 +22,7 @@ class NetworkBlock(tf.keras.Model, ABC):
 
     @abstractmethod
     def build_block(self):
-        """Builds the block of the network. 
+        """Builds the block of the network
         """
         raise NotImplementedError()
 
@@ -33,6 +33,11 @@ class NetworkBlock(tf.keras.Model, ABC):
         for layer in self._layers:
             prev_y = layer(prev_y)
         return prev_y
+
+    def reset(self):
+        """Reset the weights (if any) of the block
+        """
+        self.build_block()
 
     def clone(self):
         """Creates an identical network block with the same structure
@@ -122,6 +127,15 @@ class Sequential(tf.keras.Sequential):
                 print("WARN: Could not clone", block, " reused instead")
                 cloned_blocks.append(block)
         return Sequential(cloned_blocks)
+
+    def reset(self):
+        """Resets the weights (if any) of the entire sequential block
+        """
+        for block in self._blocks:
+            try:
+                block.reset()
+            except Exception as e:
+                pass
 
     def __copy__(self):
         """Overwrite the copy so copy.copy duplicates properly

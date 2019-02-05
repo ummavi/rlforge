@@ -5,20 +5,11 @@ tf.enable_eager_execution()
 
 from tqdm import tqdm
 
-from rlforge.agents.pg import REINFORCEAgent, REINFORCEContinuousAgent
-from rlforge.common.policy_functions import PolicyNetworkDense
-from rlforge.common.value_functions import VNetworkDense
 from rlforge.environments.environment import GymEnv
-
-
-def train(agent, n_episodes):
-    # Simple train function using tqdm to show progress
-    pbar = tqdm(range(n_episodes))
-    for i in pbar:
-        agent.interact(1)
-        if i % 5 == 0:
-            last_5_rets = agent.stats.get_values("episode_returns")[-5:]
-            pbar.set_description("Latest return: " + str(np.mean(last_5_rets)))
+from rlforge.runners.trainers import train_sequential
+from rlforge.common.value_functions import VNetworkDense
+from rlforge.common.policy_functions import PolicyNetworkDense
+from rlforge.agents.pg import REINFORCEAgent, REINFORCEContinuousAgent
 
 
 def example_discrete():
@@ -31,25 +22,22 @@ def example_discrete():
     env.env.seed(0)
 
     gamma = 0.9
-    baseline_learning_rate = 0.001
 
     policy_config = dict(layer_sizes=[64, 64], activation="tanh")
     policy = PolicyNetworkDense(env.n_actions, policy_config)
 
+    baseline_learning_rate = 0.001
     value_config = dict(layer_sizes=[64, 64], activation="tanh")
     value_opt = tf.train.AdamOptimizer(baseline_learning_rate)
     value_baseline = VNetworkDense(value_config, value_opt, gamma)
-
     agent = REINFORCEAgent(
         env,
         policy,
-        policy_learning_rate=0.001,
+        policy_learning_rate=0.0001,
         baseline=value_baseline,
         gamma=gamma,
-        entropy_coeff=3)
-    train(agent, 500)
-    print("Average Return (Train)",
-          np.mean(agent.stats.get_values("episode_returns")))
+        entropy_coeff=0.0001)
+    train_sequential(agent, env, 250, seed=list(range(5)))
 
 
 def example_continuous():
@@ -61,7 +49,7 @@ def example_continuous():
 
     gamma = 0.9
 
-    policy_config = dict(layer_sizes=[64, 64], activation="tanh")
+    policy_config = dict(layer_sizes=[128, 128], activation="tanh")
     policy = PolicyNetworkDense(2 * env.n_actions, policy_config)
 
     # baseline_learning_rate = 0.001
@@ -74,12 +62,10 @@ def example_continuous():
         env,
         policy,
         baseline=value_baseline,
-        policy_learning_rate=0.0005,
+        policy_learning_rate=0.001,
         gamma=gamma,
-        entropy_coeff=0.001)
-    train(agent, 500)
-    print("Average Return (Train)",
-          np.mean(agent.stats.get_values("episode_returns")))
+        entropy_coeff=0.01)
+    train_sequential(agent, env, 250, seed=list(range(5)))
 
 
 if __name__ == "__main__":

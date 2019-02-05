@@ -5,9 +5,10 @@ tf.enable_eager_execution()
 
 from tqdm import tqdm
 
-from rlforge.agents.double_dqn import DoubleDQNAgent
-from rlforge.common.value_functions import QNetworkDense
 from rlforge.environments.environment import GymEnv
+from rlforge.agents.double_dqn import DoubleDQNAgent
+from rlforge.runners.trainers import train_sequential
+from rlforge.common.value_functions import QNetworkDense
 
 
 def train(agent, n_episodes):
@@ -42,6 +43,6 @@ if __name__ == '__main__':
         gamma=0.8,
         eps=0.2,
         minibatch_size=128)
-    train(agent, 250)
+    train_sequential(agent, env, 250, seed=list(range(5)))
     print("Average Return (Train)",
           np.mean(agent.stats.get_values("episode_returns")))

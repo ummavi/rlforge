@@ -61,6 +61,8 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,
         # DQN trains after every step so add it to the post_episode hook
         self.post_step_hooks.append(self.learn)
 
+        self.model_list = [self.network]
+
     def learn(self, global_step_ts, step_data):
         """Perform one step of learning with a batch of data
 

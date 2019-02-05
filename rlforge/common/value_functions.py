@@ -42,6 +42,9 @@ class ValueFunctionBase:
         """
         return copy.copy(self)
 
+    def reset(self):
+        self.model.reset()
+
 
 class ValueFunctionDense(ValueFunctionBase):
     def build_network(self, network_config, n_outputs):

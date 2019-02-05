@@ -48,6 +48,8 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
             self.baseline = baseline
             self.post_episode_hooks.append(self.learn_baseline)
 
+        self.model_list = [self.model, self.baseline]
+
     def learn_baseline(self, global_episode_ts, episode_data):
         """ Perform a step of training for the Monte-Carlo Value-function
         estimator.
@@ -131,3 +133,6 @@ class REINFORCEContinuousAgent(GaussianPolicyMX, REINFORCEAgent):
         else:
             self.baseline = baseline
             self.post_episode_hooks.append(self.learn_baseline)
+    
+        self.model_list = [self.model, self.baseline]
+

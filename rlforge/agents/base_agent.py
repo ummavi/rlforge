@@ -126,3 +126,16 @@ class BaseAgent(ABC):
             self.stats.append("episode_returns", self.global_episode_ts,
                               np.sum(episodes[-1].rewards))
         return episodes
+
+    def reset(self):
+        """Resets the weights of the agent and any other parameters
+        """
+        self.global_step_ts = 0
+        self.global_episode_ts = 0
+        self.stats = StatsLogger()
+
+        for m in self.model_list:
+            try:
+                m.reset()
+            except Exception as e:
+                print("reset() not defined for model",m,". Ignoring")
