@@ -1,6 +1,6 @@
 import numpy as np
 
-from rlforge.mixins.base_mixin import BaseMixin
+from rlforge.modules.base_mixin import BaseMixin
 from rlforge.common import Episode
 
 

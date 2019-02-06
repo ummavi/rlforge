@@ -3,9 +3,9 @@ import tensorflow as tf
 tf.enable_eager_execution()
 
 from rlforge.agents.base_agent import BaseAgent
-from rlforge.mixins.policies import EpsilonGreedyPolicyMX
-from rlforge.mixins.experience_replay import ExperienceReplayMX
-from rlforge.mixins.target_network import TargetNetworkMX
+from rlforge.modules.policies import EpsilonGreedyPolicyMX
+from rlforge.modules.experience_replay import ExperienceReplayMX
+from rlforge.modules.target_network import TargetNetworkMX
 
 
 class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,

@@ -125,7 +125,7 @@ class VNetworkDense(ValueFunctionDense):
         Parameters:
         batch (list of Episodes OR list of Transitions)
 
-        TODO: n_steps=None 
+        TODO: n_steps=None
         """
 
         if type(batch[0]) is Episode:

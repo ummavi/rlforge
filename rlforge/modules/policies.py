@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from rlforge.mixins.base_mixin import BaseMixin
+from rlforge.modules.base_mixin import BaseMixin
 
 
 class EpsilonGreedyPolicyMX(BaseMixin):
@@ -161,7 +161,7 @@ class DistributionalPolicyMX(EpsilonGreedyPolicyMX):
     def atom_probabilities(self, state_batch):
         """Get atom probabilities.
         """
-        return tf.nn.softmax(self.model(state_batch))
+        return tf.nn.softmax(self.network(state_batch))
 
     def q_values(self, state_batch):
         """
@@ -175,8 +175,8 @@ class DistributionalPolicyMX(EpsilonGreedyPolicyMX):
         eps_current = max((self.eps_start - self.ts_eps * self.eps_delta),
                           self.eps_end)
         if greedy or np.random.uniform() > eps_current:
-            # q_values = self.model([state])[0]
-            q_values = self.network([state])[0]
+            # q_values = self.network([state])[0]
+            q_values = self.q_values([state])[0]
             return np.argmax(q_values)
         else:
             return np.random.choice(self.env.n_actions)

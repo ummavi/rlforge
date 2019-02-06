@@ -3,9 +3,9 @@ import tensorflow as tf
 tf.enable_eager_execution()
 
 from rlforge.agents.base_agent import BaseAgent
-from rlforge.mixins.policies import DistributionalPolicyMX
-from rlforge.mixins.experience_replay import ExperienceReplayMX
-from rlforge.mixins.target_network import TargetNetworkMX
+from rlforge.modules.policies import DistributionalPolicyMX
+from rlforge.modules.experience_replay import ExperienceReplayMX
+from rlforge.modules.target_network import TargetNetworkMX
 from rlforge.common.utils import one_hot
 
 
@@ -40,7 +40,7 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
                  v_min=0,
                  v_max=200):
 
-        self.model = q_function
+        self.network = q_function
         self.gamma = gamma
         self.ts_start_learning = ts_start_learning
 
@@ -65,15 +65,15 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
         # DQN trains after every step so add it to the post_episode hook
         self.post_step_hooks.append(self.learn)
 
-        self.model_list = [self.model]
-        
+        self.model_list = [self.network, self.target_network]
+
     def categorical_projection(self, state_ns, rewards, is_not_terminal):
         """
         Applies the categorical projection listed under algorithm 1.
         """
         batch_size = len(state_ns)
         # p = self.atom_probabilities(state_ns)
-        p = tf.nn.softmax(self.target_model(state_ns))
+        p = tf.nn.softmax(self.target_network(state_ns))
         self.stats.append("test3", 1, p)
 
         q_s_n = np.dot(p, np.transpose(self.z))
@@ -122,12 +122,12 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
         m = self.categorical_projection(state_ns, rewards, is_not_terminal)
 
         with tf.GradientTape() as tape:
-            logp = tf.nn.log_softmax(self.model(states))
+            logp = tf.nn.log_softmax(self.network(states))
             a_mask = tf.expand_dims(
                 tf.one_hot(actions, self.env.n_actions), axis=2)
             a_mask = tf.tile(a_mask, [1, 1, self.n_atoms])
             logp_selected = tf.reduce_sum(logp * a_mask, axis=1)
             losses = tf.reduce_mean(-tf.reduce_sum(m * logp_selected, axis=-1))
 
-            grads = tape.gradient(losses, self.model.trainable_weights)
-            self.opt.apply_gradients(zip(grads, self.model.trainable_weights))
+            grads = tape.gradient(losses, self.network.trainable_weights)
+            self.opt.apply_gradients(zip(grads, self.network.trainable_weights))

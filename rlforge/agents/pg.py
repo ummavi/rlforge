@@ -4,7 +4,7 @@ import tensorflow as tf
 tf.enable_eager_execution()
 
 from rlforge.agents.base_agent import BaseAgent
-from rlforge.mixins.policies import SoftmaxPolicyMX, GaussianPolicyMX
+from rlforge.modules.policies import SoftmaxPolicyMX, GaussianPolicyMX
 from rlforge.common.utils import discounted_returns
 
 
