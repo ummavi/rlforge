@@ -133,6 +133,5 @@ class REINFORCEContinuousAgent(GaussianPolicyMX, REINFORCEAgent):
         else:
             self.baseline = baseline
             self.post_episode_hooks.append(self.learn_baseline)
-    
-        self.model_list = [self.model, self.baseline]
 
+        self.model_list = [self.model, self.baseline]

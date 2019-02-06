@@ -126,31 +126,31 @@ class GaussianPolicyMX(BaseMixin):
     def sample(self, numerical_prefs, greedy):
         means, logstds = tf.split(numerical_prefs, 2, axis=-1)
         stds = tf.exp(logstds)
-        stds = 1e-5 if greedy else stds
-        return np.random.normal(means, stds)
+        return means if greedy else np.random.normal(means, stds)
 
     def probs(self, numerical_prefs, actions):
         means, logstds = tf.split(numerical_prefs, 2, axis=-1)
         stds = tf.exp(logstds)
-        policy = tf.exp(-tf.square(actions - means) /
-                        (2 * tf.square(stds))) / (stds * np.sqrt(2 * np.pi))
+        probs = tf.exp(-tf.square(actions - means) /
+                       (2 * tf.square(stds))) / (stds * np.sqrt(2 * np.pi))
 
-        return tf.nn.softmax(numerical_prefs)
+        return probs
 
     def logprobs(self, numerical_prefs, actions):
         """Get log probabilities of policy.
         """
         means, logstds = tf.split(numerical_prefs, 2, axis=-1)
         stds = tf.exp(logstds)
-        logprob = -tf.reduce_sum(logstds, axis=-1) \
+        logprobs = -logstds \
                   -0.5*np.log(2*np.pi) \
-                  -0.5*tf.reduce_sum(tf.square((actions - means)/stds))
-        return logprob
+                  -0.5*tf.square((actions - means)/stds)
+        return tf.reduce_sum(logprobs, axis=-1)
 
     def policy_entropy(self, numerical_prefs):
         means, logstds = tf.split(numerical_prefs, 2, axis=-1)
-        entropy = tf.reduce_sum(logstds + 0.5 * np.log(2.0 * np.pi * np.e),
-                                axis=-1)
+        entropy = tf.reduce_sum(logstds,axis=-1) + \
+                0.5 * (np.log(2.0 * np.pi * np.e)),
+
         return entropy
 
 

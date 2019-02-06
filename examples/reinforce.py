@@ -48,23 +48,21 @@ def example_continuous():
     env.env.seed(0)
 
     gamma = 0.9
-
-    policy_config = dict(layer_sizes=[128, 128], activation="tanh")
+    policy_config = dict(layer_sizes=[64, 64], activation="tanh")
     policy = PolicyNetworkDense(2 * env.n_actions, policy_config)
 
-    # baseline_learning_rate = 0.001
-    # value_config = dict(layer_sizes=[64, 64], activation="tanh")
-    # value_opt = tf.train.AdamOptimizer(baseline_learning_rate)
-    # value_baseline = VNetworkDense(value_config, value_opt, gamma)
-    value_baseline = None
+    baseline_learning_rate = 0.001
+    value_config = dict(layer_sizes=[64, 64], activation="tanh")
+    value_opt = tf.train.AdamOptimizer(baseline_learning_rate)
+    value_baseline = VNetworkDense(value_config, value_opt, gamma)
 
     agent = REINFORCEContinuousAgent(
         env,
         policy,
         baseline=value_baseline,
-        policy_learning_rate=0.001,
+        policy_learning_rate=0.005,
         gamma=gamma,
-        entropy_coeff=0.01)
+        entropy_coeff=3)
     train_sequential(agent, env, 250, seed=list(range(5)))
 
 
