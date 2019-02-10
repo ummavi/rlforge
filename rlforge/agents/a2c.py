@@ -1,10 +1,9 @@
+from rlforge.modules.policies import SoftmaxPolicyMX, GaussianPolicyMX
+from rlforge.agents.base_agent import BaseAgent
 import numpy as np
 import tensorflow as tf
 
 tf.enable_eager_execution()
-
-from rlforge.agents.base_agent import BaseAgent
-from rlforge.modules.policies import SoftmaxPolicyMX
 
 
 class A2CAgent(SoftmaxPolicyMX, BaseAgent):
@@ -15,6 +14,8 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
 
     Note: Instead of doing parallel rollouts, gradients are batched
     and updated every `n_workers` episodes.
+
+    See examples/a2c.py for example agent
 
     TODO:
     * Parallel runners
@@ -51,7 +52,7 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
 
         self.accumulated_grads = None
 
-        self.model_list = [self.model]
+        self.model_list = [self.model, self.v_function]
 
     def get_discounted_returns(self, rewards):
         """ Return discounted rewards
@@ -95,18 +96,13 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
 
         advantage = rewards + self.gamma * v_state_ns - v_states
         with tf.GradientTape() as tape:
-            probs = tf.nn.softmax(self.model(states))
-            # Add a small constant to prevent blowup
-            logprobs = tf.log(probs + 1e-12)
-
-            selected_logprobs = logprobs * \
-                tf.one_hot(actions, self.env.n_actions)
-            selected_logprobs = tf.reduce_sum(selected_logprobs, axis=-1)
+            numerical_prefs = self.model(states)
+            logprobs = self.logprobs(numerical_prefs, actions)
 
             average_entropy = tf.reduce_mean(
-                -tf.reduce_sum(probs * logprobs, axis=1))
+                self.policy_entropy(numerical_prefs))
 
-            losses = -tf.reduce_sum(selected_logprobs * advantage)
+            losses = -tf.reduce_sum(logprobs * advantage)
             losses -= self.entropy_coeff * average_entropy
 
             grads = tape.gradient(losses, self.model.trainable_weights)
@@ -129,46 +125,40 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
         self.stats.append("episode_losses", global_episode_ts, losses)
 
 
-if __name__ == '__main__':
-    from tqdm import tqdm
-    from rlforge.common.policy_functions import PolicyNetworkDense
-    from rlforge.common.value_functions import VNetworkDense
-    from rlforge.environments.environment import GymEnv
+class A2CContinuousAgent(GaussianPolicyMX, A2CAgent):
+    """A2C agent for continuous actions using a gaussian
+    policy
 
-    def train(agent, n_episodes):
-        # Simple train function using tqdm to show progress
-        pbar = tqdm(range(n_episodes))
-        for i in pbar:
-            _ = agent.interact(1)
-            if i % 5 == 0:
-                last_5_rets = agent.stats.get_values("episode_returns")[-5:]
-                pbar.set_description("Latest return: " +
-                                     str(np.mean(last_5_rets)))
+    See examples/a2c.py for example agent
+    """
 
-    env = GymEnv('CartPole-v0')
+    def __init__(self,
+                 env,
+                 model,
+                 policy_learning_rate,
+                 v_function,
+                 gamma=0.9,
+                 entropy_coeff=3,
+                 n_workers=2):
+        """
+        Parameters:
+        model: A callable model with the final layer being identity.
+        v_function: A callable model of the state-value function
+        """
+        BaseAgent.__init__(self, env)
+        GaussianPolicyMX.__init__(self)
 
-    np.random.seed(0)
-    tf.set_random_seed(0)
-    env.env.seed(0)
+        self.gamma = gamma
+        self.n_workers = n_workers
+        self.entropy_coeff = entropy_coeff
 
-    gamma = 0.99
-    value_learning_rate = 0.001
+        self.model = model
+        self.opt = tf.train.AdamOptimizer(policy_learning_rate)
+        self.post_episode_hooks.append(self.learn)
 
-    policy_config = dict(layer_sizes=[64, 64], activation="tanh")
-    policy = PolicyNetworkDense(env.n_actions, policy_config)
+        self.v_function = v_function
+        self.post_episode_hooks.append(self.learn_value)
 
-    value_config = dict(layer_sizes=[64, 64], activation="tanh")
-    value_opt = tf.train.AdamOptimizer(value_learning_rate)
-    value_baseline = VNetworkDense(value_config, value_opt, gamma, n_steps=5)
+        self.accumulated_grads = None
 
-    agent = A2CAgent(
-        env,
-        policy,
-        policy_learning_rate=0.001,
-        v_function=value_baseline,
-        gamma=gamma,
-        entropy_coeff=3,
-        n_workers=2)
-    train(agent, 500)
-    print("Average Return (Train)",
-          np.mean(agent.stats.get_values("episode_returns")))
+        self.model_list = [self.model, self.v_function]
