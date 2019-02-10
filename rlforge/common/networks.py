@@ -37,6 +37,7 @@ class NetworkBlock(tf.keras.Model, ABC):
     def reset(self):
         """Reset the weights (if any) of the block
         """
+        self._layers = []
         self.build_block()
 
     def clone(self):
