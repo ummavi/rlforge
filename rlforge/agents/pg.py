@@ -97,8 +97,8 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
 
 class REINFORCEContinuousAgent(GaussianPolicyMX, REINFORCEAgent):
     """
-    Simple Episodic REINFORCE (Williams92) agent with discrete actions
-    and a softmax policy.
+    Simple Episodic REINFORCE (Williams92) agent with continuous actions
+    using a gaussian policy
 
     See examples/reinforce.py for example agent
     """

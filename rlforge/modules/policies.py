@@ -92,14 +92,14 @@ class SoftmaxPolicyMX(BaseMixin):
     def probs(self, numerical_prefs, actions):
         all_probs = self.all_probs(numerical_prefs)
         selected_probs = all_probs * \
-                         tf.one_hot(actions, self.env.n_actions)
+            tf.one_hot(actions, self.env.n_actions)
         selected_probs = tf.reduce_sum(selected_probs, axis=-1)
         return selected_probs
 
     def logprobs(self, numerical_prefs, actions):
         all_logprobs = self.all_logprobs(numerical_prefs)
         selected_logprobs = all_logprobs * \
-                tf.one_hot(actions, self.env.n_actions)
+            tf.one_hot(actions, self.env.n_actions)
         selected_logprobs = tf.reduce_sum(selected_logprobs, axis=-1)
         return selected_logprobs
 
@@ -141,15 +141,15 @@ class GaussianPolicyMX(BaseMixin):
         """
         means, logstds = tf.split(numerical_prefs, 2, axis=-1)
         stds = tf.exp(logstds)
-        logprobs = -logstds \
-                  -0.5*np.log(2*np.pi) \
-                  -0.5*tf.square((actions - means)/stds)
+        logprobs = - logstds \
+            - 0.5 * np.log(2 * np.pi) \
+            - 0.5 * tf.square((actions - means) / stds)
         return tf.reduce_sum(logprobs, axis=-1)
 
     def policy_entropy(self, numerical_prefs):
         means, logstds = tf.split(numerical_prefs, 2, axis=-1)
-        entropy = tf.reduce_sum(logstds,axis=-1) + \
-                0.5 * (np.log(2.0 * np.pi * np.e)),
+        entropy = tf.reduce_sum(logstds, axis=-1) + \
+            0.5 * (np.log(2.0 * np.pi * np.e)),
 
         return entropy
 
