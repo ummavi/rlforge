@@ -34,15 +34,10 @@ class ReplayBuffer:
         self.buffer = []
         self.next_loc = 0
 
-    def append(self, state, action, reward, state_n, done, action_n=None):
+    def append(self, *args):
         """Adds a transition to replay buffer
         """
-
-        if action_n is not None:
-            data = (state, action, reward, state_n, done, action_n)
-        else:
-            data = (state, action, reward, state_n, done)
-
+        data = tuple(args)
         if len(self.buffer) < self.max_size:
             self.buffer.append(data)
         else:
