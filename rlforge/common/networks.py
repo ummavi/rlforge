@@ -98,6 +98,37 @@ class DenseBlock(NetworkBlock):
             self._layers.append(layer)
 
 
+class SplitOutputDenseBlock(NetworkBlock):
+    """Defines a split output dense block
+    Useful wrapper around final layers when they output
+    logically separable outputs.
+
+    This allows a clean read interface like
+    means, stds = model(inputs)
+    """
+    default_params = dict(
+        split_axis=1,
+        activation=None,
+        output_sizes=[20, 20],
+        weight_initializer="glorot_uniform")
+
+    def __init__(self, params):
+        NetworkBlock.__init__(self, params)
+
+    def build_block(self):
+        """Builds the conv layers followed by the dense
+        """
+        self.op_layer = tf.keras.layers.Dense(
+            sum(self.params["output_sizes"]),
+            activation=self.params["activation"],
+            kernel_initializer=self.params["weight_initializer"])
+
+    def __call__(self, block_input):
+        output_flat = self.op_layer(block_input)
+        return tf.split(output_flat, self.params["output_sizes"],
+                        self.params["split_axis"])
+
+
 class Sequential(tf.keras.Sequential):
     """Builds a sequential block composed of other blocks
     """
