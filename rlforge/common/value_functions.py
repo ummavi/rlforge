@@ -25,7 +25,7 @@ class ValueFunctionBase:
         """
         return self.model(states)
 
-    def update_q(self, states, targets):
+    def update_v(self, states, targets):
         """Perform one update step of the network
         """
         with tf.GradientTape() as tape:
@@ -61,7 +61,7 @@ class ValueFunctionDense(ValueFunctionBase):
 
 
 class QNetworkDense(ValueFunctionDense):
-    def __init__(self, n_actions, network_config, optimizer, gamma=0.98):
+    def __init__(self, n_actions, network_config, optimizer=None, gamma=0.98):
         """Simple Q-Network with only dense layers
         """
         model = self.build_network(network_config, n_outputs=n_actions)
@@ -91,7 +91,7 @@ class QNetworkDense(ValueFunctionDense):
 
 
 class VNetworkDense(ValueFunctionDense):
-    def __init__(self, network_config, optimizer, gamma=0.98, n_steps=1):
+    def __init__(self, network_config, optimizer=None, gamma=0.98, n_steps=1):
         """Simple V-Network with only dense layers
 
         n_steps: MC parameter for N-Step returns
@@ -104,11 +104,8 @@ class VNetworkDense(ValueFunctionDense):
         ValueFunctionBase.__init__(self, model, optimizer, default_loss_fn,
                                    gamma)
 
-    def update_mc(self, episodes):
-        """Perform a Monte-Carlo update of the network
-
-        Parameters:
-        episodes (list of Episode)
+    def generate_mc_targets(self, episodes):
+        """Process and generate MC targets of the network
         """
         all_states, all_returns = [], []
 
@@ -116,18 +113,23 @@ class VNetworkDense(ValueFunctionDense):
             returns = discounted_returns(e.rewards, self.gamma)
             all_states += e.observations[:-1]
             all_returns += returns
+        return (np.vstack(all_states), np.vstack(all_returns))
 
-        self.update_q(np.vstack(all_states), np.vstack(all_returns))
-
-    def update_td(self, batch):
-        """Perform a td update of the network
+    def update_mc(self, episodes):
+        """Perform a Monte-Carlo update of the network
 
         Parameters:
-        batch (list of Episodes OR list of Transitions)
-
-        TODO: n_steps=None
+        episodes (list of Episode)
         """
+        if self.optimizer is None:
+            raise AssertionError("Did not pass `optimizer`  \
+                                    when creating VNetworkDense")
+        states, targets = self.generate_mc_targets(episodes)
+        self.update_v(states, targets)
 
+    def generate_td_targets(self, batch):
+        """Process and generate TD targets
+        """
         if type(batch[0]) is Episode:
             all_states, v_all_targets = [], []
             for e in batch:
@@ -145,8 +147,7 @@ class VNetworkDense(ValueFunctionDense):
 
                 all_states += states[:-1]  # Don't update s_T
                 v_all_targets += [v_targets]
-
-            self.update_q(all_states, v_all_targets)
+            return (all_states, v_all_targets)
         else:
             states, _, rewards, state_ns, dones = zip(*batch)
             rewards, is_not_term = np.float32(rewards), np.float32(
@@ -154,5 +155,18 @@ class VNetworkDense(ValueFunctionDense):
 
             v_sns = self.model(state_ns)
             v_target = rewards + (self.gamma * v_sns * is_not_term)
+            return (states, v_target)
 
-            self.update_q(states, v_target)
+    def update_td(self, batch):
+        """Perform a td update of the network
+
+        Parameters:
+        batch (list of Episodes OR list of Transitions)
+
+        TODO: n_steps=None
+        """
+        if self.optimizer is None:
+            raise AssertionError("Did not pass `optimizer`  \
+                                    when creating VNetworkDense")
+        states, targets = self.generate_td_targets(batch)
+        self.update_v(states, targets)
