@@ -28,8 +28,7 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
                  v_function_coeff,
                  gamma=0.9,
                  entropy_coeff=3,
-                 n_workers=2,
-                 n_steps=4):
+                 n_workers=2):
         """
         Parameters:
         model: A callable model with the final layer being identity.
@@ -41,7 +40,6 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
 
         self.gamma = gamma
         self.model = model
-        self.n_steps = n_steps
         self.n_workers = n_workers
         self.entropy_coeff = entropy_coeff
 
@@ -124,8 +122,7 @@ class A2CContinuousAgent(GaussianPolicyMX, A2CAgent):
                  v_function_coeff,
                  gamma=0.9,
                  entropy_coeff=3,
-                 n_workers=2,
-                 n_steps=4):
+                 n_workers=2):
         """
         Parameters:
         model: A callable model with the final layer being identity.
@@ -136,7 +133,6 @@ class A2CContinuousAgent(GaussianPolicyMX, A2CAgent):
         GaussianPolicyMX.__init__(self)
 
         self.gamma = gamma
-        self.n_steps = n_steps
         self.n_workers = n_workers
         self.entropy_coeff = entropy_coeff
 
