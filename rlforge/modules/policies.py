@@ -74,7 +74,7 @@ class SoftmaxPolicyMX(BaseMixin):
     def act(self, state, greedy):
         """Epsilon greedy policy:
         """
-        numerical_prefs = self.model([state])
+        numerical_prefs = self.model.policy([state])
         policy_probs = np.float32(self.all_probs(numerical_prefs)[0])
         if greedy:
             return np.argmax(policy_probs)
@@ -119,7 +119,7 @@ class GaussianPolicyMX(BaseMixin):
     def act(self, state, greedy):
         """Epsilon greedy policy:
         """
-        numerical_prefs = self.model([state])
+        numerical_prefs = self.model.policy([state])
         act = self.sample(numerical_prefs, greedy)[0]
         return act
 

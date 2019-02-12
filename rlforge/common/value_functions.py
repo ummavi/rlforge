@@ -114,13 +114,13 @@ class ValueFunction:
         self.model.reset()
 
     def q(self, states):
-        raise Exception("Q not defined for "+str(self.__class__))
+        raise Exception("Q not defined for " + str(self.__class__))
 
     def v(self, states):
         return self.model(states)
 
     def policy(self, states):
-        raise Exception("Policy not defined for "+str(self.__class__))
+        raise Exception("Policy not defined for " + str(self.__class__))
 
     def get_weights(self):
         return self.model.get_weights()
@@ -162,7 +162,12 @@ class VNetworkDense(ValueFunctionDense):
 
 
 class ValuePolicyNetworkDense(ValueFunction):
-    def __init__(self, network_config, output_sizes, optimizer=None, gamma=0.98, n_steps=1):
+    def __init__(self,
+                 network_config,
+                 output_sizes,
+                 optimizer=None,
+                 gamma=0.98,
+                 n_steps=1):
         """Merged Policy-V-Network with only dense layers
 
         n_steps: MC parameter for N-Step returns
@@ -183,18 +188,20 @@ class ValuePolicyNetworkDense(ValueFunction):
         final_layer_config.update(
             dict(output_sizes=output_sizes, activation="linear"))
 
-        return Sequential(
-            [DenseBlock(params=network_config),
-             SplitOutputDenseBlock(params=final_layer_config)])
+        return Sequential([
+            DenseBlock(params=network_config),
+            SplitOutputDenseBlock(params=final_layer_config)
+        ])
 
     def q(self, states):
-        raise Exception("V not defined for "+str(self.__class__))
+        raise Exception("V not defined for " + str(self.__class__))
 
     def v(self, states):
         return self.model(states)[-1]
 
     def policy(self, states):
         return self.model(states)[0]
+
 
 class QNetworkDense(ValueFunctionDense):
     def __init__(self, n_actions, network_config, optimizer=None, gamma=0.98):
@@ -219,10 +226,10 @@ class QNetworkDense(ValueFunctionDense):
         return preds, losses
 
     def policy(self, states):
-        raise Exception("Policy not defined for "+str(self.__class__))
+        raise Exception("Policy not defined for " + str(self.__class__))
 
     def q(self, states):
         return self.model(states)
 
     def v(self, states):
-        raise Exception("V not defined for "+str(self.__class__))
+        raise Exception("V not defined for " + str(self.__class__))
