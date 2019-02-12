@@ -40,6 +40,7 @@ class BaseAgent(ABC):
         self.post_episode_hooks = []
         self.pre_step_hooks = []
         self.post_step_hooks = []
+        self.reset_hooks = []
 
         self.latest_episode = None
 
@@ -139,3 +140,6 @@ class BaseAgent(ABC):
                 m.reset()
             except Exception as e:
                 print("reset() not defined for model",m,". Ignoring")
+
+        for hook in self.reset_hooks:
+            hook()
