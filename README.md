@@ -1,9 +1,9 @@
 # RLForge
 
-RLForge is a project and framework to *quickly* and *cleanly* implement popular RL algorithms from literature as well as prototype new ones. Algorithms in RLForge are implemented using TensorFlow Eager but should be very easily modified to use libraries like PyTorch or Chainer. 
+RLForge is a project to *quickly* and *cleanly* implement popular RL algorithms from literature as well as prototype new ones. Algorithms in RLForge are implemented using TensorFlow Eager but should be very easily modified to use libraries like PyTorch or Chainer. 
 
 
-This framework is inspired by [ChainerRL](https://github.com/chainer/chainerrl) and [OpenAI baselines](https://github.com/openai/baselines) and is an attempt to modularize the many components of an RL system so they can be combined in a simple, readable way without excessive code duplication. This is attempted through through the use of [Mixins](https://en.wikipedia.org/wiki/Mixin) where each "feature" is implemented in its own encapsulated way and is automatically used by the agent as soon as it's added as a base class.
+This framework is inspired by [ChainerRL](https://github.com/chainer/chainerrl) and [OpenAI baselines](https://github.com/openai/baselines) and is an attempt to modularize the many components of an RL system so they can be combined in a simple, readable way without excessive code duplication. This is attempted through the use of [Mixins](https://en.wikipedia.org/wiki/Mixin) where each "feature" is implemented in its own encapsulated way and is automatically used by the agent as soon as it's added as a base class.
 
 
 ## Getting Started
@@ -81,22 +81,19 @@ class QLearningAgent(ExperienceReplayMX, BaseAgent):
 ```
 ## Currently Implemented
 ### Algorithms 
-* DQN (And Double DQN)
-* Vanilla PG [+Baseline] (Only discrete actions)
-* A2C (Without distributed execution and Shared network)
-
+* DQN (And Double DQN) [ [Link](https://www.nature.com/articles/nature14236), [Link]((https://arxiv.org/abs/1509.06461)) ]
+* Vanilla PG/REINFORCE [±Value-Function Baseline (Monte-Carlo/N-Step TD)] (Discrete and Continuous Actions)
+* A2C (Without distributed execution) [ [Link] ](https://arxiv.org/abs/1602.01783)
+* Categorical DQN (C51) [ [Link] ](https://arxiv.org/abs/1707.06887)
+* Self-Imitation Learning [ [Link] ](https://arxiv.org/abs/1806.05635)
 
 
 ## Roadmap
-Whether this architecture choice holds up to more complex algorithms remains to be seen. Regardless, implementations of a number of standard Deep-RL algorithms followed by papers from HRL and multi-task, multi-goal RL that I find interesting.
+Implementations of a number of standard Deep-RL algorithms including HRL and multi-task, multi-goal RL that I personally find interesting are upcoming!
 
-### Core 
+### Core
+* Convenient interfaces for hyper-parameter tuning
+* Better examples and benchmarks on harder environments with better-tuned hyper-parameters and visualization.
 * Compatibility checks and dependencies for mixins
-* More debugging tools, sanity checks and warnings
+* More debugging tools, sanity checks, refactoring and verbose warnings
 * Many more reusable mixins implementations! 
-
-### Algorithms 
-* Double & Duelling DQN
-* C51
-* DDPG 
-* PPO
