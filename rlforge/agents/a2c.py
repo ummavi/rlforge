@@ -2,7 +2,6 @@ import numpy as np
 import tensorflow as tf
 
 from rlforge.agents.base_agent import BaseAgent
-from rlforge.common.value_functions import ValueFunction
 from rlforge.modules.policies import SoftmaxPolicyMX, GaussianPolicyMX
 
 
@@ -52,7 +51,7 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
 
         self.v_function_coeff = v_function_coeff
 
-        self.accumulated_grads = None
+        self.acc_grads = None
 
         self.model_list = [self.model]
 
@@ -64,15 +63,17 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
             episode_data (Episode)
         """
 
-        all_states, actions = episode_data.observations, episode_data.actions
-        rewards = episode_data.rewards
+        states, actions = episode_data.observations, episode_data.actions
+        q_sts = self.model.nstep_bootstrapped_value(episode_data)
+        # Terminal state's value is 0.
+        q_sts = np.squeeze(np.float32(np.concatenate((q_sts, [0.0]))))
+
         with tf.GradientTape() as tape:
-            numerical_prefs_all, v_all_states = self.model(all_states)
+            numerical_prefs, v_sts = self.model(states)
+            numerical_prefs = numerical_prefs[:-1]  # Ignore A_{T}
+            v_sts = tf.squeeze(v_sts)
 
-            v_states, v_state_ns = v_all_states[:-1], v_all_states[1:]
-            numerical_prefs = numerical_prefs_all[:-1]
-
-            advantage = rewards + self.gamma * v_state_ns - v_states
+            advantage = q_sts - v_sts
             advantage = tf.stop_gradient(advantage)
 
             # Policy Loss
@@ -80,39 +81,32 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
             average_entropy = tf.reduce_mean(
                 self.policy_entropy(numerical_prefs))
 
-            loss_policy = -tf.reduce_sum(logprobs * advantage)
+            loss_policy = -tf.reduce_sum(logprobs * advantage[:-1])
+            loss_policy -= self.entropy_coeff * average_entropy
 
             # Value loss
-            _, value_targets = self.model.generate_td_targets([episode_data])
-            value_targets = np.float32(value_targets)  # Fix float64 error
-
-            loss_value = tf.squared_difference(
-                tf.squeeze(value_targets), tf.squeeze(v_states))
-            loss_value = tf.reduce_mean(loss_value)
-
-            losses = loss_policy + self.v_function_coeff * loss_value -\
-                self.entropy_coeff * average_entropy
+            loss_value = tf.losses.mean_squared_error(q_sts, v_sts)
+            losses = loss_policy + self.v_function_coeff * loss_value
 
             grads = tape.gradient(losses, self.model.trainable_weights)
             # grads, _ = tf.clip_by_global_norm(grads, 40.0)
-            if (global_episode_ts - 1) % self.n_workers == 0:
-                if self.accumulated_grads is not None:
-                    acc_grads = [
-                        g / self.n_workers for g in self.accumulated_grads
-                    ]
-                    self.opt.apply_gradients(
-                        zip(acc_grads, self.model.trainable_weights))
-                self.accumulated_grads = grads
+
+            if self.acc_grads is None:
+                self.acc_grads = grads
             else:
-                self.accumulated_grads = [
-                    ag + g for g, ag in zip(grads, self.accumulated_grads)
+                self.acc_grads = [
+                    ag + g for g, ag in zip(grads, self.acc_grads)
                 ]
+
+            if (global_episode_ts) % self.n_workers == 0:
+                self.opt.apply_gradients(
+                    zip(self.acc_grads, self.model.trainable_weights))
+                self.acc_grads = None
 
         self.stats.append("episode_average_entropy", global_episode_ts,
                           average_entropy)
         self.stats.append("episode_average_advantage", global_episode_ts,
                           np.mean(advantage))
-
         self.stats.append("episode_losses", global_episode_ts, losses)
 
 
@@ -152,6 +146,6 @@ class A2CContinuousAgent(GaussianPolicyMX, A2CAgent):
 
         self.v_function_coeff = v_function_coeff
 
-        self.accumulated_grads = None
+        self.acc_grads = None
 
         self.model_list = [self.model]

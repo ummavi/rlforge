@@ -20,12 +20,13 @@ def example_discrete():
     env.env.seed(0)
 
     gamma = 0.9
-    model_learning_rate = 0.00025
-    v_function_coeff = 0.01
+    model_learning_rate = 0.0005
+    v_function_coeff = 5
 
     network_config = dict(layer_sizes=[512, 512], activation="tanh")
     output_sizes = [env.n_actions, 1]
-    model = ValuePolicyNetworkDense(network_config, output_sizes, n_steps=3)
+    model = ValuePolicyNetworkDense(
+        network_config, output_sizes, gamma, n_steps=8)
 
     agent = A2CAgent(
         env,
@@ -33,7 +34,7 @@ def example_discrete():
         model_learning_rate,
         v_function_coeff=v_function_coeff,
         gamma=gamma,
-        entropy_coeff=2.5,
+        entropy_coeff=3.5,
         n_workers=6)
     train_sequential(agent, env, 250, seed=list(range(5)))
 

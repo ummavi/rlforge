@@ -41,13 +41,19 @@ class ValueFunction:
     def generate_mc_targets(self, episodes):
         """Process and generate MC targets of the network
         """
-        all_states, all_returns = [], []
+        all_states, all_returns, all_dones = [], [], []
 
         for e in episodes:
             returns = discounted_returns(e.rewards, self.gamma)
             all_states += e.observations[:-1]
             all_returns += returns
-        return (np.vstack(all_states), np.vstack(all_returns))
+            all_dones += e.dones
+
+        all_returns = np.vstack(all_returns)
+        all_dones = np.vstack(all_dones)
+        # Returns for terminal states are 0.
+        all_returns = all_returns*np.float32(np.invert(all_dones))
+        return (np.vstack(all_states), all_returns)
 
     def update_mc(self, episodes):
         """Perform a Monte-Carlo update of the network
@@ -61,27 +67,43 @@ class ValueFunction:
         states, targets = self.generate_mc_targets(episodes)
         self.update_v(states, targets)
 
+    def nstep_bootstrapped_value(self, episode, n_steps=1):
+        """Generate n_step bootstrapped value estimate
+
+        Q(s_t,a_t) = r_t + γ*V(s_t+1) for n_steps=1
+        Q(s_t,a_t) = r_t + γ*r_{t+2} + γ^2*V(s_{t+3}) for n_steps=2
+        ...
+        Q(s_t,a_t) = Σ_{i=t...t+n} r_i +γ^{n}*V(s_{t+n+1}) for n_steps=n
+
+        TODO: Handle error when there are < n_steps states
+        """
+        states, rewards = episode.observations, episode.rewards
+
+        trunc_returns = discounted_returns(
+            rewards, self.gamma, n_steps=self.n_steps)
+
+        # Get V(s') where s' = s_{t+n}.
+        # V(s_{T, T+1, T+2.....})=0 where s_T is the terminal state
+        v_sns = np.ravel(self.v(states[self.n_steps:]))
+        v_sns = np.hstack((v_sns[:-1], np.zeros(self.n_steps)))
+        v_sns_discounted = self.gamma**self.n_steps * v_sns
+
+        q_sts = trunc_returns + v_sns_discounted
+        return q_sts
+
     def generate_td_targets(self, batch):
         """Process and generate TD targets
         """
         if type(batch[0]) is Episode:
             all_states, v_all_targets = [], []
             for e in batch:
-                states, rewards = e.observations, e.rewards
-                # Get V(s') where s' = s_{t+n}.
-                # V(s_{T, T+1, T+2.....})=0 where s_T is the terminal state
-                v_sns = np.ravel(self.v(states[self.n_steps:]))
-                v_sns = np.hstack((v_sns[:-1], np.zeros(self.n_steps)))
+                v_targets = self.nstep_bootstrapped_value(e)
 
-                trunc_returns = discounted_returns(
-                    rewards, self.gamma, n_steps=self.n_steps)
+                all_states += e.observations
+                # Value function for the terminal state is set to 0.0
+                v_all_targets += [np.hstack((v_targets, 0.0))]
 
-                discounted_v_sn = self.gamma**(self.n_steps + 1) * v_sns
-                v_targets = trunc_returns + discounted_v_sn
-
-                all_states += states[:-1]  # Don't update s_T
-                v_all_targets += [v_targets]
-            return (all_states, np.float32(v_all_targets))
+            return (np.float32(all_states), np.float32(v_all_targets))
         else:
             states, _, rewards, state_ns, dones = zip(*batch)
             rewards, is_not_term = np.float32(rewards), np.float32(
@@ -148,7 +170,7 @@ class ValueFunctionDense(ValueFunction):
 
 
 class VNetworkDense(ValueFunctionDense):
-    def __init__(self, network_config, optimizer=None, gamma=0.98, n_steps=1):
+    def __init__(self, network_config, gamma, optimizer=None, n_steps=1):
         """V-Network with only dense layers
 
         n_steps: MC parameter for N-Step returns
@@ -165,8 +187,8 @@ class ValuePolicyNetworkDense(ValueFunction):
     def __init__(self,
                  network_config,
                  output_sizes,
+                 gamma,
                  optimizer=None,
-                 gamma=0.98,
                  n_steps=1):
         """Merged Policy-V-Network with only dense layers
 
