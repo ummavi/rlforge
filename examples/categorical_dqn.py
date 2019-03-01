@@ -3,13 +3,15 @@ import tensorflow as tf
 
 tf.enable_eager_execution()
 
-from tqdm import tqdm
-
 from rlforge.environments.environment import GymEnv
-from rlforge.runners.trainers import train_sequential
-from rlforge.common.value_functions import QNetworkDense
 from rlforge.agents.categorical_dqn import CategoricalDQN
 from rlforge.common.networks import DenseBlock, Sequential
+
+from sacred import Experiment
+from sacred.observers import MongoObserver
+
+ex = Experiment()
+ex.observers.append(MongoObserver.create())
 
 
 def ParametericNetworkDense(n_actions, n_atoms, network_config):
@@ -23,26 +25,47 @@ def ParametericNetworkDense(n_actions, n_atoms, network_config):
     ])
 
 
-if __name__ == "__main__":
+@ex.config
+def config():
+    env_name = 'CartPole-v0'
+    eps = 0.2
+    seed = 100
+    gamma = 0.9
     n_atoms = 51
-    env = GymEnv('CartPole-v0')
+    activation = "tanh"
+    minibatch_size = 128
+    n_train_episodes = 250
 
-    np.random.seed(0)
-    tf.set_random_seed(0)
-    env.env.seed(0)
+    policy_layer_sizes = [64, 64]
+    policy_learning_rate = 5e-4
+
+    replay_buffer_size = 10000
+    target_network_update_freq = 200
+
+
+@ex.automain
+def train_example(env_name, seed, gamma, n_atoms, policy_layer_sizes,
+                  activation, policy_learning_rate, replay_buffer_size,
+                  target_network_update_freq, minibatch_size, eps,
+                  n_train_episodes):
+    env = GymEnv(env_name)
+
+    np.random.seed(seed)
+    tf.set_random_seed(seed)
+    env.env.seed(seed)
 
     q_network = ParametericNetworkDense(
-        env.n_actions, n_atoms, dict(layer_sizes=[64, 64], activation="tanh"))
+        env.n_actions, n_atoms,
+        dict(layer_sizes=policy_layer_sizes, activation=activation))
     agent = CategoricalDQN(
         env,
         q_network,
-        policy_learning_rate=0.005,
-        replay_buffer_size=10000,
-        target_network_update_freq=200,
-        gamma=0.8,
-        eps=0.2,
-        minibatch_size=128,
+        policy_learning_rate=policy_learning_rate,
+        replay_buffer_size=replay_buffer_size,
+        target_network_update_freq=target_network_update_freq,
+        gamma=gamma,
+        eps=eps,
+        minibatch_size=minibatch_size,
         n_atoms=n_atoms)
-    train_sequential(agent, env, 100, seed=list(range(5)))
-    print("Average Return (Train)",
-          np.mean(agent.stats.get_values("episode_returns")))
+
+    agent.interact(n_train_episodes, show_progress=True)

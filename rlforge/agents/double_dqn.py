@@ -48,5 +48,5 @@ class DoubleDQNAgent(DQNAgent):
         q_targets = rewards + (self.gamma * target_preds * is_not_terminal)
         preds, losses = self.network.update_q(states, actions, q_targets)
 
-        self.stats.append("step_losses", global_step_ts, losses)
-        self.stats.append("step_mean_q", global_step_ts, np.mean(preds))
+        self.logger.log_scalar("step_losses", float(losses))
+        self.logger.log_scalar("step_mean_q", np.mean(preds))

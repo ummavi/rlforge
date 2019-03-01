@@ -23,13 +23,15 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
                  baseline=None,
                  baseline_learning_rate=None,
                  gamma=0.9,
-                 entropy_coeff=0.0):
+                 entropy_coeff=0.0,
+                 experiment=None):
         """
         Parameters:
         model: A callable model with the final layer being identity.
         baseline (None/Value Function): Optional baseline function
+        experiment [(optional) Sacred expt]: Logs metrics to sacred as well
         """
-        BaseAgent.__init__(self, env)
+        BaseAgent.__init__(self, env, experiment)
         SoftmaxPolicyMX.__init__(self)
 
         assert env.action_space == "discrete"
@@ -90,9 +92,9 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
             grads = tape.gradient(losses, self.model.trainable_weights)
             self.opt.apply_gradients(zip(grads, self.model.trainable_weights))
 
-        # self.stats.append("episode_average_entropy", global_episode_ts,
-        # average_entropy)
-        self.stats.append("episode_losses", global_episode_ts, losses)
+        self.logger.log_scalar("episode.average.entropy",
+                               float(average_entropy))
+        self.logger.log_scalar("train.loss", np.mean(losses))
 
 
 class REINFORCEContinuousAgent(GaussianPolicyMX, REINFORCEAgent):
@@ -110,13 +112,14 @@ class REINFORCEContinuousAgent(GaussianPolicyMX, REINFORCEAgent):
                  baseline=None,
                  baseline_learning_rate=None,
                  gamma=0.9,
-                 entropy_coeff=0.0):
+                 entropy_coeff=0.0, 
+                 experiment=None):
         """
         Parameters:
         model: A callable model with the final layer being identity.
         baseline (None/Value Function): Optional baseline function
         """
-        BaseAgent.__init__(self, env)
+        BaseAgent.__init__(self, env, experiment)
         GaussianPolicyMX.__init__(self)
 
         assert env.action_space == "continuous"

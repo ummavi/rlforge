@@ -3,46 +3,54 @@ import tensorflow as tf
 
 tf.enable_eager_execution()
 
-from tqdm import tqdm
-
-from rlforge.environments.environment import GymEnv
 from rlforge.agents.double_dqn import DoubleDQNAgent
-from rlforge.runners.trainers import train_sequential
+from rlforge.environments.environment import GymEnv
 from rlforge.common.value_functions import QNetworkDense
 
+from sacred import Experiment
+from sacred.observers import MongoObserver
 
-def train(agent, n_episodes):
-    # Simple train function using tqdm to show progress
-    pbar = tqdm(range(n_episodes))
-    for i in pbar:
-        agent.interact(1)
-        if i % 5 == 0:
-            last_5_rets = agent.stats.get_values("episode_returns")[-5:]
-            pbar.set_description("Latest return: " + str(np.mean(last_5_rets)))
+ex = Experiment()
+ex.observers.append(MongoObserver.create())
 
 
-if __name__ == '__main__':
-    env = GymEnv('CartPole-v0')
+@ex.config
+def config():
+    env_name = 'CartPole-v0'
+    seed = 100
+    gamma = 0.9
+    activation = "tanh"
 
-    np.random.seed(0)
-    tf.set_random_seed(0)
-    env.env.seed(0)
+    policy_layer_sizes = [64, 64]
+    policy_learning_rate = 5e-4
 
-    policy_learning_rate = 0.0001
-    gamma = 0.8
+    n_train_episodes = 250
+    replay_buffer_size = 10000
+    target_network_update_freq = 300
+    eps = 0.2
+    minibatch_size = 128
 
-    q_config = dict(layer_sizes=[64, 64], activation="tanh")
+
+@ex.automain
+def train_example(env_name, seed, gamma, policy_layer_sizes,
+                  policy_learning_rate, activation,
+                  replay_buffer_size, target_network_update_freq,
+                  eps, minibatch_size, n_train_episodes):
+    env = GymEnv(env_name)
+
+    np.random.seed(seed)
+    tf.set_random_seed(seed)
+    env.env.seed(seed)
+
+    q_config = dict(layer_sizes=policy_layer_sizes, activation=activation)
     q_opt = tf.train.AdamOptimizer(policy_learning_rate)
     q_network = QNetworkDense(env.n_actions, q_config, q_opt, gamma)
 
-    agent = DoubleDQNAgent(
-        env,
-        q_network,
-        replay_buffer_size=10000,
-        target_network_update_freq=300,
-        gamma=0.8,
-        eps=0.2,
-        minibatch_size=128)
-    train_sequential(agent, env, 250, seed=list(range(5)))
-    print("Average Return (Train)",
-          np.mean(agent.stats.get_values("episode_returns")))
+    agent = DoubleDQNAgent(env, q_network,
+                           replay_buffer_size=replay_buffer_size,
+                           target_network_update_freq=target_network_update_freq,
+                           gamma=gamma, eps=eps,
+                           minibatch_size=minibatch_size,
+                           experiment=ex)
+
+    agent.interact(n_train_episodes, show_progress=True)

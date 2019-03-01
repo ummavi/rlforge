@@ -38,13 +38,14 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
                  ts_eps_end=None,
                  n_atoms=51,
                  v_min=0,
-                 v_max=200):
+                 v_max=200,
+                 experiment=None):
 
         self.network = q_function
         self.gamma = gamma
         self.ts_start_learning = ts_start_learning
 
-        BaseAgent.__init__(self, env)
+        BaseAgent.__init__(self, env, experiment)
         ExperienceReplayMX.__init__(self, replay_buffer_size, minibatch_size)
         TargetNetworkMX.__init__(self, target_network_update_freq)
         DistributionalPolicyMX.__init__(
@@ -74,7 +75,6 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
         batch_size = len(state_ns)
         # p = self.atom_probabilities(state_ns)
         p = tf.nn.softmax(self.target_network(state_ns))
-        self.stats.append("test3", 1, p)
 
         q_s_n = np.dot(p, np.transpose(self.z))
         assert q_s_n.shape == (batch_size, self.env.n_actions)

@@ -28,14 +28,16 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
                  v_function_coeff,
                  gamma=0.9,
                  entropy_coeff=3,
-                 n_workers=2):
+                 n_workers=2, 
+                 experiment=None):
         """
         Parameters:
         model: A callable model with the final layer being identity.
         v_function: A callable model of the state-value function
         v_function_coeff: Coeff. the V-function loss should be scaled by
+        experiment [(optional) Sacred expt]: Logs metrics to sacred as well
         """
-        BaseAgent.__init__(self, env)
+        BaseAgent.__init__(self, env, experiment)
         SoftmaxPolicyMX.__init__(self)
 
         self.gamma = gamma
@@ -79,13 +81,12 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
             average_entropy = tf.reduce_mean(
                 self.policy_entropy(numerical_prefs))
 
-            loss_policy = -tf.reduce_sum(logprobs * advantage[:-1])
+            loss_policy = -tf.reduce_mean(logprobs * advantage[:-1])
             loss_policy -= self.entropy_coeff * average_entropy
 
             # Value loss
             loss_value = tf.losses.mean_squared_error(q_sts, v_sts)
             losses = loss_policy + self.v_function_coeff * loss_value
-
             grads = tape.gradient(losses, self.model.trainable_weights)
             # grads, _ = tf.clip_by_global_norm(grads, 40.0)
 
@@ -101,11 +102,11 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
                     zip(self.acc_grads, self.model.trainable_weights))
                 self.acc_grads = None
 
-        self.stats.append("episode_average_entropy", global_episode_ts,
-                          average_entropy)
-        self.stats.append("episode_average_advantage", global_episode_ts,
-                          np.mean(advantage))
-        self.stats.append("episode_losses", global_episode_ts, losses)
+        self.logger.log_scalar("episode_average_entropy",
+                               float(average_entropy))
+        self.logger.log_scalar("episode_average_advantage",
+                               np.mean(advantage))
+        self.logger.log_scalar("episode_losses", float(losses))
 
 
 class A2CContinuousAgent(GaussianPolicyMX, A2CAgent):
@@ -122,14 +123,17 @@ class A2CContinuousAgent(GaussianPolicyMX, A2CAgent):
                  v_function_coeff,
                  gamma=0.9,
                  entropy_coeff=3,
-                 n_workers=2):
+                 n_workers=2,
+                 experiment=None
+                 ):
         """
         Parameters:
         model: A callable model with the final layer being identity.
         v_function: A callable model of the state-value function
         v_function_coeff: Coeff. the V-function loss should be scaled by
+        experiment [(optional) Sacred expt]: Logs metrics to sacred as well
         """
-        BaseAgent.__init__(self, env)
+        BaseAgent.__init__(self, env, experiment)
         GaussianPolicyMX.__init__(self)
 
         self.gamma = gamma

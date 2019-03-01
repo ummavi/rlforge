@@ -39,7 +39,8 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,
                  eps_schedule=None,
                  eps_start=None,
                  eps_end=None,
-                 ts_eps_end=None):
+                 ts_eps_end=None,
+                 experiment=None):
 
         self.network = q_function
         self.network.set_loss_fn(tf.losses.huber_loss)
@@ -47,7 +48,7 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,
         self.gamma = gamma
         self.ts_start_learning = ts_start_learning
 
-        BaseAgent.__init__(self, env)
+        BaseAgent.__init__(self, env, experiment)
         ExperienceReplayMX.__init__(self, replay_buffer_size, minibatch_size)
         TargetNetworkMX.__init__(self, target_network_update_freq)
         EpsilonGreedyPolicyMX.__init__(
@@ -83,5 +84,5 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,
 
         preds, losses = self.network.update_q(states, actions, q_targets)
 
-        self.stats.append("step_losses", global_step_ts, losses)
-        self.stats.append("step_mean_q", global_step_ts, np.mean(preds))
+        self.logger.log_scalar("step_losses", float(losses))
+        self.logger.log_scalar("step_mean_q", np.mean(preds))
