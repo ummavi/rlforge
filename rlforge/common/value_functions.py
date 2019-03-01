@@ -24,6 +24,8 @@ class ValueFunction:
     def __call__(self, states):
         """ Redirect call to the model
         """
+        if type(self.model) is list:
+            return [m(states) for m in self.model]
         return self.model(states)
 
     def update_v(self, states, targets):
@@ -145,14 +147,25 @@ class ValueFunction:
         raise Exception("Policy not defined for " + str(self.__class__))
 
     def get_weights(self):
-        return self.model.get_weights()
+
+        if type(self.model) is list:
+            return sum([m.get_weights() for m in self.model],[])
+        else:
+            return self.model.get_weights()
 
     def set_weights(self, weights):
-        self.model.set_weights(weights)
+        if type(self.model) is list:
+            for m, w in zip(self.model, weights):
+                m.set_weights(w)
+        else:
+            self.model.set_weights(weights)
 
     @property
     def trainable_weights(self):
-        return self.model.trainable_weights
+        if type(self.model) is list:
+            return sum([m.trainable_weights for m in self.model],[])
+        else:
+            return self.model.trainable_weights
 
 
 class ValueFunctionDense(ValueFunction):
@@ -183,14 +196,14 @@ class VNetworkDense(ValueFunctionDense):
         ValueFunction.__init__(self, model, optimizer, default_loss_fn, gamma)
 
 
-class ValuePolicyNetworkDense(ValueFunction):
+class ValuePolicyNetworkDenseShared(ValueFunction):
     def __init__(self,
                  network_config,
                  output_sizes,
                  gamma,
                  optimizer=None,
                  n_steps=1):
-        """Merged Policy-V-Network with only dense layers
+        """Shared Policy-V-Network with only dense layers
 
         n_steps: MC parameter for N-Step returns
         """
@@ -225,6 +238,49 @@ class ValuePolicyNetworkDense(ValueFunction):
         return self.model(states)[0]
 
 
+class ValuePolicyNetworkDense(ValueFunction):
+    def __init__(self,
+                 network_config,
+                 output_sizes,
+                 gamma,
+                 optimizer=None,
+                 n_steps=1):
+        """Separate Policy-V-Network with only dense layers
+
+        n_steps: MC parameter for N-Step returns
+        """
+
+        model = self.build_network(network_config, output_sizes)
+        self.n_steps = n_steps
+        default_loss_fn = tf.losses.mean_squared_error
+
+        ValueFunction.__init__(self, model, optimizer, default_loss_fn, gamma)
+
+    def build_network(self, network_config, output_sizes):
+        """Build a dense network according to the config. specified
+        """
+        # Copy the default network configuration (weight initialization)
+        assert type(output_sizes) is list
+        models = []
+        for output_size in output_sizes:
+            final_layer_config = dict(network_config)
+            final_layer_config.update(dict(layer_sizes=[output_size],
+                                      activation="linear"))
+            models.append(Sequential([
+                DenseBlock(params=network_config),
+                DenseBlock(params=final_layer_config)]))
+        return models
+
+    def q(self, states):
+        raise Exception("V not defined for " + str(self.__class__))
+
+    def v(self, states):
+        return self.model[-1](states)
+
+    def policy(self, states):
+        return self.model[0](states)
+
+
 class QNetworkDense(ValueFunctionDense):
     def __init__(self, n_actions, network_config, optimizer=None, gamma=0.98):
         """Q-Network with only dense layers
@@ -238,7 +294,7 @@ class QNetworkDense(ValueFunctionDense):
         """Perform one update step of the network
         """
         with tf.GradientTape() as tape:
-            preds = self.model.q(states)
+            preds = self.q(states)
             q_selected = tf.reduce_sum(
                 preds * tf.one_hot(actions, self.n_actions), axis=-1)
             losses = self.loss_fn(tf.squeeze(targets), tf.squeeze(q_selected))

@@ -56,19 +56,19 @@ class ConvBlock(NetworkBlock):
         flatten_output=True)
 
     def __init__(self, params=None):
-        """Builds a convolutional block. 
+        """Builds a convolutional block.
         Default network parameters for the CNN layer(s).
             returns the Nature DQN config
         """
         NetworkBlock.__init__(self, params)
 
     def build_block(self):
-        """Builds the CNN block of the network. 
+        """Builds the CNN block of the network.
         """
         params_iter = zip(self.params["n_filters"],
                           self.params["filter_sizes"], self.params["strides"])
         for fs, ks, strides in params_iter:
-            layer = layers.Conv2D(
+            layer = tf.layers.Conv2D(
                 fs, ks, strides=strides, activation=self.params["activation"])
             self._layers.append(layer)
 
@@ -149,7 +149,7 @@ class Sequential(tf.keras.Sequential):
         return prev_y
 
     def clone(self):
-        """Clones the entire sequential block 
+        """Clones the entire sequential block
         """
         cloned_blocks = []
         for block in self._blocks:
