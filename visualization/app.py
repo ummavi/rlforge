@@ -57,12 +57,12 @@ def merge_experiments(experiments):
         "id": list,
         "seed": list
     })
-    merged_expts.columns = ["ids", "seeds"]
+    merged_expts.columns = ["_ids", "_seeds"]
     merged_expts = merged_expts.reset_index()
     merged_expts = merged_expts.rename(
         index=str, columns={
-            "ids": "id",
-            "seeds": "seed"
+            "_ids": "id",
+            "_seeds": "seed"
         })
     merged_expts["seed"] = merged_expts["seed"].map(
         lambda x: "[" + ",".join(x) + "]")
