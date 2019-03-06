@@ -5,8 +5,9 @@ import numpy as np
 from rlforge.common.networks import DenseBlock
 
 
-class PolicyNetwork:
+class PolicyNetworkBase(chainer.Chain):
     def __init__(self, gamma):
+        super().__init__()
         self.gamma = gamma
 
     def clone(self):
@@ -27,10 +28,9 @@ class PolicyNetwork:
         return self.forward(states)
 
 
-class PolicyNetworkDense(chainer.Chain, PolicyNetwork):
+class PolicyNetworkDense(PolicyNetworkBase):
     def __init__(self, n_actions, hidden_config, gamma=0.98):
-        PolicyNetwork.__init__(self, gamma)
-        chainer.Chain.__init__(self)
+        PolicyNetworkBase.__init__(self, gamma)
         self.build_network(hidden_config, n_outputs=n_actions)
 
     def build_network(self, hidden_config, n_outputs):
@@ -39,7 +39,7 @@ class PolicyNetworkDense(chainer.Chain, PolicyNetwork):
         with self.init_scope():
             # Copy the default network configuration (weight initialization)
             final_config = dict(hidden_config)
-            final_config.update(dict(layer_sizes=[n_outputs], activation="tanh"))
+            final_config.update(dict(layer_sizes=[n_outputs], activation="identity"))
 
             blocks = [DenseBlock(params=hidden_config),
                       DenseBlock(params=final_config)]
