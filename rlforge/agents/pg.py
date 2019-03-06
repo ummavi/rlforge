@@ -1,19 +1,23 @@
 import numpy as np
-import tensorflow as tf
+import chainer
+from chainer import functions as F
 
-tf.enable_eager_execution()
 
 from rlforge.agents.base_agent import BaseAgent
 from rlforge.modules.policies import SoftmaxPolicyMX, GaussianPolicyMX
 from rlforge.common.utils import discounted_returns
 
 
-class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
-    """
-    Simple Episodic REINFORCE (Williams92) agent with discrete actions
-    and a softmax policy.
+class REINFORCEAgent(BaseAgent):
+    """Simple Episodic REINFORCE (Williams92) agent
 
-    See examples/reinforce.py for example agent
+    The agent works with both discrete and continuous actions
+    depending on the policy parameterization.
+
+    Examples of discrete and continuous action agents using a
+    Softmax and Gaussian policy parameterization are given below
+
+    See examples/reinforce.py for example agents
     """
 
     def __init__(self,
@@ -24,22 +28,26 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
                  baseline_learning_rate=None,
                  gamma=0.9,
                  entropy_coeff=0.0,
+                 optimizer=None,
                  experiment=None):
         """
         Parameters:
         model: A callable model with the final layer being identity.
-        baseline (None/Value Function): Optional baseline function
-        experiment [(optional) Sacred expt]: Logs metrics to sacred as well
+        baseline ((optional) Value Function Object): Baseline function
+        experiment ((optional) Sacred expt): Logs metrics to sacred as well
+        optimizer (optional chainer.optimizers.*): Optimizer to use
         """
         BaseAgent.__init__(self, env, experiment)
-        SoftmaxPolicyMX.__init__(self)
-
-        assert env.action_space == "discrete"
 
         self.model = model
         self.gamma = gamma
         self.entropy_coeff = entropy_coeff
-        self.opt = tf.train.AdamOptimizer(policy_learning_rate)
+
+        if optimizer is None:
+            self.optimizer = chainer.optimizers.RMSpropGraves(policy_learning_rate)
+            self.optimizer = self.optimizer.setup(self.model)
+        else:
+            self.optimizer = optimizer
 
         self.post_episode_hooks.append(self.learn)
 
@@ -75,66 +83,35 @@ class REINFORCEAgent(SoftmaxPolicyMX, BaseAgent):
         states, actions = episode_data.observations[:-1], episode_data.actions
 
         returns = returns - self.baseline(states)
-        with tf.GradientTape() as tape:
-            # Obtain the numerical preferences from the model.
-            # .. Depending on the policy, this could be output to
-            # .. the softmax or the parameters of the gaussian
-            # .. the name's from Sutton & Barto 2nd ed.
-            numerical_prefs = self.model(states)
-            logprobs = self.logprobs(numerical_prefs, actions)
 
-            average_entropy = tf.reduce_mean(
-                self.policy_entropy(numerical_prefs))
+        # Obtain the numerical preferences from the model.
+        # .. Depending on the policy, this could be output to
+        # .. the softmax or the parameters of the gaussian
+        # .. the name's from Sutton & Barto 2nd ed.
+        numerical_prefs = self.model(states)
+        logprobs = self.logprobs(numerical_prefs, actions)
 
-            losses = -tf.reduce_sum(logprobs * returns)
-            losses -= self.entropy_coeff * average_entropy
+        average_entropy = F.mean(
+            self.policy_entropy(numerical_prefs))
 
-            grads = tape.gradient(losses, self.model.trainable_weights)
-            self.opt.apply_gradients(zip(grads, self.model.trainable_weights))
+        losses = -F.sum(logprobs * returns)
+        losses -= self.entropy_coeff * average_entropy
+        self.model.cleargrads()
+        losses.backward()
+        self.optimizer.update()
 
         self.logger.log_scalar("episode.average.entropy",
-                               float(average_entropy))
-        self.logger.log_scalar("train.loss", np.mean(losses))
+                               float(average_entropy.array))
+        self.logger.log_scalar("train.loss", np.mean(losses.array))
+
+class REINFORCEDiscreteAgent(SoftmaxPolicyMX, REINFORCEAgent):
+    def __init__(self, **kwargs):
+        assert kwargs["env"].action_space == "discrete"
+        REINFORCEAgent.__init__(self, **kwargs)
+        SoftmaxPolicyMX.__init__(self)
 
 
 class REINFORCEContinuousAgent(GaussianPolicyMX, REINFORCEAgent):
-    """
-    Simple Episodic REINFORCE (Williams92) agent with continuous actions
-    using a gaussian policy
-
-    See examples/reinforce.py for example agent
-    """
-
-    def __init__(self,
-                 env,
-                 model,
-                 policy_learning_rate,
-                 baseline=None,
-                 baseline_learning_rate=None,
-                 gamma=0.9,
-                 entropy_coeff=0.0, 
-                 experiment=None):
-        """
-        Parameters:
-        model: A callable model with the final layer being identity.
-        baseline (None/Value Function): Optional baseline function
-        """
-        BaseAgent.__init__(self, env, experiment)
+    def __init__(self, **kwargs):
+        REINFORCEAgent.__init__(self, **kwargs)
         GaussianPolicyMX.__init__(self)
-
-        assert env.action_space == "continuous"
-        self.model = model
-        self.gamma = gamma
-        self.entropy_coeff = entropy_coeff
-        self.opt = tf.train.AdamOptimizer(policy_learning_rate)
-
-        self.post_episode_hooks.append(self.learn)
-
-        if baseline is None:
-            # If baseline isn't set, use a constant 0 baseline.
-            self.baseline = lambda x: np.zeros(len(x))
-        else:
-            self.baseline = baseline
-            self.post_episode_hooks.append(self.learn_baseline)
-
-        self.model_list = [self.model, self.baseline]

@@ -1,6 +1,7 @@
 import numpy as np
-import tensorflow as tf
+from chainer import functions as F
 
+from rlforge.common.utils import one_hot
 from rlforge.modules.base_mixin import BaseMixin
 
 
@@ -75,38 +76,39 @@ class SoftmaxPolicyMX(BaseMixin):
         """Epsilon greedy policy:
         """
         numerical_prefs = self.model.policy([state])
-        policy_probs = np.float32(self.all_probs(numerical_prefs)[0])
+        policy_probs = self.all_probs(numerical_prefs)[0].array
         if greedy:
             return np.argmax(policy_probs)
         else:
             return np.random.choice(self.env.n_actions, p=policy_probs)
 
     def all_probs(self, numerical_prefs):
-        return tf.nn.softmax(numerical_prefs)
+        return F.softmax(numerical_prefs,axis=-1)
 
     def all_logprobs(self, numerical_prefs):
         """Get log probabilities of policy.
         """
-        return tf.nn.log_softmax(numerical_prefs)
+        return F.log_softmax(numerical_prefs,axis=-1)
 
     def probs(self, numerical_prefs, actions):
         all_probs = self.all_probs(numerical_prefs)
         selected_probs = all_probs * \
-            tf.one_hot(actions, self.env.n_actions)
-        selected_probs = tf.reduce_sum(selected_probs, axis=-1)
+            one_hot(actions, self.env.n_actions)
+        selected_probs = F.sum(selected_probs, axis=-1)
         return selected_probs
 
     def logprobs(self, numerical_prefs, actions):
         all_logprobs = self.all_logprobs(numerical_prefs)
         selected_logprobs = all_logprobs * \
-            tf.one_hot(actions, self.env.n_actions)
-        selected_logprobs = tf.reduce_sum(selected_logprobs, axis=-1)
+            one_hot(actions, self.env.n_actions)
+        selected_logprobs = F.sum(selected_logprobs, axis=-1)
         return selected_logprobs
 
     def policy_entropy(self, numerical_prefs):
         probs = self.all_probs(numerical_prefs)
         logprobs = self.all_logprobs(numerical_prefs)
-        return -tf.reduce_sum(probs * logprobs, axis=1)
+        entropy = -F.sum(probs * logprobs, axis=1)
+        return entropy
 
 
 class GaussianPolicyMX(BaseMixin):
@@ -124,33 +126,34 @@ class GaussianPolicyMX(BaseMixin):
         return act
 
     def sample(self, numerical_prefs, greedy):
-        means, logstds = tf.split(numerical_prefs, 2, axis=-1)
-        stds = tf.exp(logstds)
-        return means if greedy else np.random.normal(means, stds)
+        means, logstds = F.split_axis(numerical_prefs, 2, axis=-1)
+        stds = F.exp(logstds)
+        return means if greedy else np.random.normal(means.array, stds.array)
 
     def probs(self, numerical_prefs, actions):
-        means, logstds = tf.split(numerical_prefs, 2, axis=-1)
-        stds = tf.exp(logstds)
-        probs = tf.exp(-tf.square(actions - means) /
-                       (2 * tf.square(stds))) / (stds * np.sqrt(2 * np.pi))
+        actions = np.array(actions)
+        means, logstds = F.split_axis(numerical_prefs, 2, axis=-1)
+        stds = F.exp(logstds)
+        probs = F.exp(-F.square(actions - means) /
+                      (2 * F.square(stds))) / (stds * np.sqrt(2 * np.pi))
 
         return probs
 
     def logprobs(self, numerical_prefs, actions):
         """Get log probabilities of policy.
         """
-        means, logstds = tf.split(numerical_prefs, 2, axis=-1)
-        stds = tf.exp(logstds)
+        actions = np.array(actions)
+        means, logstds = F.split_axis(numerical_prefs, 2, axis=-1)
+        stds = F.exp(logstds)
         logprobs = - logstds \
             - 0.5 * np.log(2 * np.pi) \
-            - 0.5 * tf.square((actions - means) / stds)
-        return tf.reduce_sum(logprobs, axis=-1)
+            - 0.5 * F.square((actions - means) / stds)
+        return F.sum(logprobs, axis=-1)
 
     def policy_entropy(self, numerical_prefs):
-        means, logstds = tf.split(numerical_prefs, 2, axis=-1)
-        entropy = tf.reduce_sum(logstds, axis=-1) + \
-            0.5 * (np.log(2.0 * np.pi * np.e)),
-
+        means, logstds = F.split_axis(numerical_prefs, 2, axis=-1)
+        entropy = F.sum(logstds, axis=1) + \
+            0.5 * (np.log(2.0 * np.pi * np.e))
         return entropy
 
 
@@ -161,7 +164,7 @@ class DistributionalPolicyMX(EpsilonGreedyPolicyMX):
     def atom_probabilities(self, state_batch):
         """Get atom probabilities.
         """
-        return tf.nn.softmax(self.network(state_batch))
+        return F.softmax(self.network(state_batch))
 
     def q_values(self, state_batch):
         """

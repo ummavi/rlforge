@@ -1,17 +1,13 @@
 import copy
+import chainer
+import numpy as np
 
-from rlforge.common.networks import DenseBlock, Sequential
+from rlforge.common.networks import DenseBlock
 
 
 class PolicyNetwork:
-    def __init__(self, model, gamma):
-        self.model = model
+    def __init__(self, gamma):
         self.gamma = gamma
-
-    def __call__(self, states):
-        """ Redirect call to the model
-        """
-        return self.model(states)
 
     def clone(self):
         """Clone the whole value function wrapper
@@ -19,7 +15,7 @@ class PolicyNetwork:
         return copy.copy(self)
 
     def reset(self):
-        self.model.reset()
+        self.reset()
 
     def q(self, states):
         raise Exception("Q not defined for "+str(self.__class__))
@@ -28,33 +24,31 @@ class PolicyNetwork:
         raise Exception("V not defined for "+str(self.__class__))
 
     def policy(self, states):
-        return self.model(states)
-
-    def get_weights(self):
-        return self.model.get_weights()
-
-    def set_weights(self, weights):
-        self.model.set_weights(weights)
-
-    @property
-    def trainable_weights(self):
-        return self.model.trainable_weights
+        return self.forward(states)
 
 
-class PolicyNetworkDense(PolicyNetwork):
-    def __init__(self, n_actions, network_config, gamma=0.98):
+class PolicyNetworkDense(chainer.Chain, PolicyNetwork):
+    def __init__(self, n_actions, hidden_config, gamma=0.98):
+        PolicyNetwork.__init__(self, gamma)
+        chainer.Chain.__init__(self)
+        self.build_network(hidden_config, n_outputs=n_actions)
 
-        model = self.build_network(network_config, n_outputs=n_actions)
-        PolicyNetwork.__init__(self, model, gamma)
-
-    def build_network(self, network_config, n_outputs):
+    def build_network(self, hidden_config, n_outputs):
         """Build a dense network according to the config. specified
         """
-        # Copy the default network configuration (weight initialization)
-        final_layer_config = dict(network_config)
-        final_layer_config.update(
-            dict(layer_sizes=[n_outputs], activation="linear"))
-        return Sequential([
-            DenseBlock(params=network_config),
-            DenseBlock(params=final_layer_config)
-        ])
+        with self.init_scope():
+            # Copy the default network configuration (weight initialization)
+            final_config = dict(hidden_config)
+            final_config.update(dict(layer_sizes=[n_outputs], activation="tanh"))
+
+            blocks = [DenseBlock(params=hidden_config),
+                      DenseBlock(params=final_config)]
+            self.blocks = chainer.ChainList(*blocks)
+            for block in self.blocks:
+                block.build_block()
+
+    def forward(self, x):
+        x = np.float32(x)
+        for block in self.blocks:
+            x = block(x)
+        return x

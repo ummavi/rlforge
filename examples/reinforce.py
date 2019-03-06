@@ -1,7 +1,6 @@
+import os
+import random
 import numpy as np
-import tensorflow as tf
-
-tf.enable_eager_execution()
 
 from sacred import Experiment
 from sacred.observers import MongoObserver
@@ -9,14 +8,14 @@ from sacred.observers import MongoObserver
 from rlforge.environments.environment import GymEnv
 from rlforge.common.value_functions import VNetworkDense
 from rlforge.common.policy_functions import PolicyNetworkDense
-from rlforge.agents.pg import REINFORCEAgent, REINFORCEContinuousAgent
+from rlforge.agents.pg import REINFORCEDiscreteAgent, REINFORCEContinuousAgent
 
 
 def example_discrete():
     """A simple example of REINFORCE agent with discrete actions
     """
     ex = Experiment()
-    ex.observers.append(MongoObserver.create())
+    # ex.observers.append(MongoObserver.create())
 
     @ex.config
     def config_discrete():
@@ -41,20 +40,24 @@ def example_discrete():
                       activation, n_train_episodes):
         env = GymEnv(env_name)
 
+        random.seed(seed)
         np.random.seed(seed)
-        tf.set_random_seed(seed)
         env.env.seed(seed)
+        os.environ['CHAINER_SEED'] = str(seed)
 
         policy_config = dict(layer_sizes=policy_layer_sizes,
                              activation=activation)
         policy = PolicyNetworkDense(env.n_actions, policy_config)
 
-        value_config = dict(layer_sizes=baseline_layer_sizes,
-                            activation=activation)
-        value_opt = tf.train.AdamOptimizer(baseline_learning_rate)
-        value_baseline = VNetworkDense(value_config, gamma, value_opt)
+        # value_config = dict(layer_sizes=baseline_layer_sizes,
+                            # activation=activation)
+        # value_opt = tf.train.AdamOptimizer(baseline_learning_rate)
+        # value_baseline = VNetworkDense(value_config, gamma, value_opt)
+        value_baseline = None
 
-        agent = REINFORCEAgent(env, policy,
+        agent = REINFORCEDiscreteAgent(
+                               env=env, 
+                               model=policy,
                                policy_learning_rate=policy_learning_rate,
                                baseline=value_baseline,
                                gamma=gamma,
@@ -91,20 +94,24 @@ def example_continuous():
                       activation, n_train_episodes):
         env = GymEnv(env_name)
 
+        # Set the random seeds for reproducability.
+        random.seed(seed)
         np.random.seed(seed)
-        tf.set_random_seed(seed)
         env.env.seed(seed)
+        os.environ['CHAINER_SEED'] = str(seed)
+
 
         policy_config = dict(layer_sizes=policy_layer_sizes,
                              activation=activation)
         policy = PolicyNetworkDense(2 * env.n_actions, policy_config)
 
-        value_config = dict(layer_sizes=baseline_layer_sizes,
-                            activation=activation)
-        value_opt = tf.train.AdamOptimizer(baseline_learning_rate)
-        value_baseline = VNetworkDense(value_config, gamma, value_opt)
-
-        agent = REINFORCEContinuousAgent(env, policy,
+        # value_config = dict(layer_sizes=baseline_layer_sizes,
+        #                     activation=activation)
+        # value_opt = tf.train.AdamOptimizer(baseline_learning_rate)
+        # value_baseline = VNetworkDense(value_config, gamma, value_opt)
+        value_baseline=None
+        agent = REINFORCEContinuousAgent(env=env,
+                                         model=policy,
                                          policy_learning_rate=policy_learning_rate,
                                          baseline=value_baseline,
                                          gamma=gamma,
@@ -114,5 +121,5 @@ def example_continuous():
 
 
 if __name__ == "__main__":
-    # example_continuous()
-    example_discrete()
+    example_continuous()
+    # example_discrete()
