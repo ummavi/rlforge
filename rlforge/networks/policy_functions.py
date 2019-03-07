@@ -39,7 +39,8 @@ class PolicyNetworkDense(PolicyNetworkBase):
         with self.init_scope():
             # Copy the default network configuration (weight initialization)
             final_config = dict(hidden_config)
-            final_config.update(dict(layer_sizes=[n_outputs], activation="identity"))
+            final_config.update(dict(layer_sizes=[n_outputs],
+                                     activation="identity"))
 
             blocks = [DenseBlock(params=hidden_config),
                       DenseBlock(params=final_config)]
