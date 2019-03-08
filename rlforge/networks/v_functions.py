@@ -56,7 +56,7 @@ class ValueFunctionBase(chainer.Chain):
         all_dones = np.vstack(all_dones)
         # Returns for terminal states are 0.
         all_returns = all_returns*np.float32(np.invert(all_dones))
-        return (np.vstack(all_states), all_returns)
+        return (np.vstack(all_states), np.float32(all_returns))
 
     def update_mc(self, episodes):
         """Perform a Monte-Carlo update of the network
@@ -89,7 +89,7 @@ class ValueFunctionBase(chainer.Chain):
         v_sns_discounted = self.gamma**self.n_steps * v_sns
 
         q_sts = trunc_returns + v_sns_discounted
-        return q_sts
+        return np.array(q_sts, dtype=np.float32)
 
     def generate_td_targets(self, batch):
         """Process and generate TD targets
@@ -152,10 +152,11 @@ class ValueNetworkDense(ValueFunctionBase):
 
         n_steps: MC parameter for N-Step returns
         """
-        ValueFunctionBase.__init__(self, optimizer, gamma)
+        ValueFunctionBase.__init__(self, gamma, optimizer)
 
         self.n_steps = n_steps
         self.build_network(hidden_config, n_outputs=1)
+        self.optimizer.setup(self)
 
     def build_network(self, hidden_config, n_outputs):
         """Build a dense network according to the config. specified

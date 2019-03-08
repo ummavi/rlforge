@@ -21,7 +21,7 @@ class REINFORCEAgent(BaseAgent):
     """
 
     def __init__(self,
-                 env,
+                 environment,
                  model,
                  policy_learning_rate,
                  baseline=None,
@@ -37,14 +37,15 @@ class REINFORCEAgent(BaseAgent):
         experiment ((optional) Sacred expt): Logs metrics to sacred as well
         optimizer (optional chainer.optimizers.*): Optimizer to use
         """
-        BaseAgent.__init__(self, env, experiment)
+        BaseAgent.__init__(self, environment, experiment)
 
         self.model = model
         self.gamma = gamma
         self.entropy_coeff = entropy_coeff
 
         if optimizer is None:
-            self.optimizer = chainer.optimizers.RMSpropGraves(policy_learning_rate)
+            self.optimizer = chainer.optimizers.RMSpropGraves(
+                policy_learning_rate)
             self.optimizer = self.optimizer.setup(self.model)
         else:
             self.optimizer = optimizer
@@ -82,7 +83,7 @@ class REINFORCEAgent(BaseAgent):
         returns = discounted_returns(episode_data.rewards, gamma=self.gamma)
         states, actions = episode_data.observations[:-1], episode_data.actions
 
-        returns = returns - self.baseline(states)
+        returns = returns - self.baseline(states).array
 
         # Obtain the numerical preferences from the model.
         # .. Depending on the policy, this could be output to
@@ -96,6 +97,7 @@ class REINFORCEAgent(BaseAgent):
 
         losses = -F.sum(logprobs * returns)
         losses -= self.entropy_coeff * average_entropy
+
         self.model.cleargrads()
         losses.backward()
         self.optimizer.update()
@@ -104,9 +106,10 @@ class REINFORCEAgent(BaseAgent):
                                float(average_entropy.array))
         self.logger.log_scalar("train.loss", np.mean(losses.array))
 
+
 class REINFORCEDiscreteAgent(SoftmaxPolicyMX, REINFORCEAgent):
     def __init__(self, **kwargs):
-        assert kwargs["env"].action_space == "discrete"
+        assert kwargs["environment"].action_space == "discrete"
         REINFORCEAgent.__init__(self, **kwargs)
         SoftmaxPolicyMX.__init__(self)
 
