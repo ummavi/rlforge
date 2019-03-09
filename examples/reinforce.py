@@ -16,7 +16,7 @@ def example_discrete():
     """A simple example of REINFORCE agent with discrete actions
     """
     ex = Experiment()
-    # ex.observers.append(MongoObserver.create())
+    ex.observers.append(MongoObserver.create())
 
     @ex.config
     def config_discrete():
@@ -48,7 +48,7 @@ def example_discrete():
 
         policy_config = {"layer_sizes": policy_layer_sizes,
                          "activation": activation}
-        policy = PolicyNetworkDense(env.n_actions, policy_config)
+        policy = PolicyNetworkDense(policy_config, env.n_actions)
 
         value_config = {"layer_sizes": baseline_layer_sizes,
                         "activation": activation}
@@ -103,7 +103,7 @@ def example_continuous():
 
         policy_config = {"layer_sizes": policy_layer_sizes,
                          "activation": activation}
-        policy = PolicyNetworkDense(2 * env.n_actions, policy_config)
+        policy = PolicyNetworkDense(policy_config, 2 * env.n_actions)
 
         value_config = {"layer_sizes": baseline_layer_sizes,
                         "activation": activation}
