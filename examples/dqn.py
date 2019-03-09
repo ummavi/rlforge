@@ -1,8 +1,7 @@
 import os
 import random
-import numpy as np
-
 import chainer
+import numpy as np
 
 from rlforge.agents.dqn import DQNAgent
 from rlforge.environments.environment import GymEnv
@@ -34,9 +33,9 @@ def config():
 
 @ex.automain
 def train_example(env_name, seed, gamma, policy_layer_sizes,
-                  policy_learning_rate, activation,
-                  replay_buffer_size, target_network_update_freq,
-                  eps, minibatch_size, n_train_episodes):
+                  policy_learning_rate, activation, replay_buffer_size,
+                  target_network_update_freq, eps, minibatch_size,
+                  n_train_episodes):
     env = GymEnv(env_name)
 
     random.seed(seed)
@@ -48,11 +47,14 @@ def train_example(env_name, seed, gamma, policy_layer_sizes,
     q_opt = chainer.optimizers.RMSpropGraves(policy_learning_rate)
     q_network = QNetworkDense(q_config, env.n_actions, gamma, optimizer=q_opt)
 
-    agent = DQNAgent(env, q_network,
-                     replay_buffer_size=replay_buffer_size,
-                     target_network_update_freq=target_network_update_freq,
-                     gamma=gamma, eps=eps,
-                     minibatch_size=minibatch_size, 
-                     experiment=ex)
+    agent = DQNAgent(
+        env,
+        q_network,
+        replay_buffer_size=replay_buffer_size,
+        target_network_update_freq=target_network_update_freq,
+        gamma=gamma,
+        eps=eps,
+        minibatch_size=minibatch_size,
+        experiment=ex)
 
     agent.interact(n_train_episodes, show_progress=True)
