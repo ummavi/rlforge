@@ -2,7 +2,7 @@ import copy
 import chainer
 import numpy as np
 
-from rlforge.common.networks import DenseBlock
+from rlforge.networks.blocks import DenseBlock
 
 
 class PolicyNetworkBase(chainer.Chain):

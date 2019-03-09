@@ -64,9 +64,10 @@ class NetworkBlock(chainer.Chain, ABC):
 class DenseBlock(NetworkBlock):
     """Builds a block of dense layers
     """
-    default_params = dict(layer_sizes=[256, 256],
-                          activation=F.tanh,
-                          weight_initializer=chainer.initializers.GlorotUniform(scale=np.sqrt(3)))
+    default_params = dict(
+        layer_sizes=[256, 256],
+        activation=F.tanh,
+        weight_initializer=chainer.initializers.GlorotUniform(1.0))
 
     def __init__(self, params):
         NetworkBlock.__init__(self, params)
@@ -77,9 +78,10 @@ class DenseBlock(NetworkBlock):
         with self.init_scope():
             layers = []
             for layer_size in self.b_params["layer_sizes"]:
-                layer = L.Linear(in_size=None,
-                                 out_size=layer_size,
-                                 initialW=self.b_params["weight_initializer"])
+                layer = L.Linear(
+                    in_size=None,
+                    out_size=layer_size,
+                    initialW=self.b_params["weight_initializer"])
                 layers.append(layer)
             self.layers = chainer.ChainList(*layers)
 
@@ -96,7 +98,7 @@ class SplitOutputDenseBlock(NetworkBlock):
         split_axis=1,
         activation=None,
         output_sizes=[20, 20],
-        weight_initializer=None)
+        weight_initializer=chainer.initializers.GlorotUniform(1.0))
 
     def __init__(self, params):
         NetworkBlock.__init__(self, params)
@@ -112,11 +114,5 @@ class SplitOutputDenseBlock(NetworkBlock):
 
     def forward(self, x):
         output_flat = self.op_layer(x)
-
-        start_index, split_outputs = 0, []
-
-        for i in self.b_params["output_sizes"]:
-            end_index = start_index + i
-            split_outputs.append(output_flat[start_index:end_index])
-            start_index = end_index
-        return split_outputs
+        sections = self.b_params["output_sizes"][:-1]
+        return F.split_axis(output_flat, indices_or_sections=sections, axis=1)

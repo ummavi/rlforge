@@ -4,8 +4,8 @@ import numpy as np
 import chainer
 from chainer import functions as F
 
-from rlforge.common.networks import DenseBlock
-from rlforge.common.networks import SplitOutputDenseBlock
+from rlforge.networks.blocks import DenseBlock
+from rlforge.networks.blocks import SplitOutputDenseBlock
 
 from rlforge.common.utils import Episode
 from rlforge.common.utils import discounted_returns
