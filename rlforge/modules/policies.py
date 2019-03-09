@@ -53,7 +53,7 @@ class EpsilonGreedyPolicyMX(BaseMixin):
         eps_current = max((self.eps_start - self.ts_eps * self.eps_delta),
                           self.eps_end)
         if greedy or np.random.uniform() > eps_current:
-            q_values = self.network([state])[0]
+            q_values = self.network([state])[0].array
             return np.argmax(q_values)
         else:
             return np.random.choice(self.env.n_actions)

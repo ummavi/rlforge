@@ -1,11 +1,12 @@
+import os
+import random
 import numpy as np
-import tensorflow as tf
 
-tf.enable_eager_execution()
+import chainer
 
 from rlforge.agents.dqn import DQNAgent
 from rlforge.environments.environment import GymEnv
-from rlforge.common.value_functions import QNetworkDense
+from rlforge.networks.q_functions import QNetworkDense
 
 from sacred import Experiment
 from sacred.observers import MongoObserver
@@ -38,13 +39,14 @@ def train_example(env_name, seed, gamma, policy_layer_sizes,
                   eps, minibatch_size, n_train_episodes):
     env = GymEnv(env_name)
 
+    random.seed(seed)
     np.random.seed(seed)
-    tf.set_random_seed(seed)
     env.env.seed(seed)
+    os.environ['CHAINER_SEED'] = str(seed)
 
     q_config = dict(layer_sizes=policy_layer_sizes, activation=activation)
-    q_opt = tf.train.AdamOptimizer(policy_learning_rate)
-    q_network = QNetworkDense(env.n_actions, q_config, q_opt, gamma)
+    q_opt = chainer.optimizers.RMSpropGraves(policy_learning_rate)
+    q_network = QNetworkDense(q_config, env.n_actions, gamma, optimizer=q_opt)
 
     agent = DQNAgent(env, q_network,
                      replay_buffer_size=replay_buffer_size,

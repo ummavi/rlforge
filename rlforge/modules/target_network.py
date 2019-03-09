@@ -2,7 +2,7 @@ from rlforge.modules.base_mixin import BaseMixin
 
 
 class TargetNetworkMX(BaseMixin):
-    """Target Network Mixin 
+    """Target Network Mixin
     """
 
     def __init__(self, target_network_update_freq):
@@ -10,7 +10,7 @@ class TargetNetworkMX(BaseMixin):
 
         self.target_network_update_freq = target_network_update_freq
 
-        #Create a target network on initialization.
+        # Create a target network on initialization.
         self.create_target_network()
 
         self.post_step_hooks.append(self.update_target_network)
@@ -27,4 +27,4 @@ class TargetNetworkMX(BaseMixin):
             step_data (tuple): (s,a,r,s',done)
         """
         if global_step_ts % self.target_network_update_freq == 0:
-            self.target_network.set_weights(self.network.get_weights())
+            self.target_network.copyparams(self.network)
