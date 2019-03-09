@@ -83,12 +83,12 @@ class SoftmaxPolicyMX(BaseMixin):
             return np.random.choice(self.env.n_actions, p=policy_probs)
 
     def all_probs(self, numerical_prefs):
-        return F.softmax(numerical_prefs,axis=-1)
+        return F.softmax(numerical_prefs, axis=-1)
 
     def all_logprobs(self, numerical_prefs):
         """Get log probabilities of policy.
         """
-        return F.log_softmax(numerical_prefs,axis=-1)
+        return F.log_softmax(numerical_prefs, axis=-1)
 
     def probs(self, numerical_prefs, actions):
         all_probs = self.all_probs(numerical_prefs)

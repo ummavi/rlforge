@@ -12,7 +12,8 @@ from rlforge.common.utils import discounted_returns
 
 
 class ValueFunctionBase(chainer.Chain):
-    def __init__(self, gamma,
+    def __init__(self,
+                 gamma,
                  optimizer=None,
                  default_loss_fn=F.mean_squared_error):
         super().__init__()
@@ -55,7 +56,7 @@ class ValueFunctionBase(chainer.Chain):
         all_returns = np.vstack(all_returns)
         all_dones = np.vstack(all_dones)
         # Returns for terminal states are 0.
-        all_returns = all_returns*np.float32(np.invert(all_dones))
+        all_returns = all_returns * np.float32(np.invert(all_dones))
         return (np.vstack(all_states), np.float32(all_returns))
 
     def update_mc(self, episodes):
@@ -84,12 +85,12 @@ class ValueFunctionBase(chainer.Chain):
 
         # Get V(s') where s' = s_{t+n}.
         # V(s_{T, T+1, T+2.....})=0 where s_T is the terminal state
-        v_sns = np.ravel(self.v(states[self.n_steps:]))
+        v_sns = np.ravel(self.v(states[self.n_steps:]).array)
         v_sns = np.hstack((v_sns[:-1], np.zeros(self.n_steps)))
         v_sns_discounted = self.gamma**self.n_steps * v_sns
 
         q_sts = trunc_returns + v_sns_discounted
-        return np.array(q_sts, dtype=np.float32)
+        return np.float32(q_sts)
 
     def generate_td_targets(self, batch):
         """Process and generate TD targets
@@ -156,7 +157,8 @@ class ValueNetworkDense(ValueFunctionBase):
 
         self.n_steps = n_steps
         self.build_network(hidden_config, n_outputs=1)
-        self.optimizer.setup(self)
+        if optimizer is not None:
+            self.optimizer.setup(self)
 
     def build_network(self, hidden_config, n_outputs):
         """Build a dense network according to the config. specified
@@ -164,11 +166,13 @@ class ValueNetworkDense(ValueFunctionBase):
         with self.init_scope():
             # Copy the default network configuration (weight initialization)
             final_config = dict(hidden_config)
-            final_config.update(dict(layer_sizes=[n_outputs],
-                                     activation="identity"))
+            final_config.update(
+                dict(layer_sizes=[n_outputs], activation="identity"))
 
-            blocks = [DenseBlock(params=hidden_config),
-                      DenseBlock(params=final_config)]
+            blocks = [
+                DenseBlock(params=hidden_config),
+                DenseBlock(params=final_config)
+            ]
             self.blocks = chainer.ChainList(*blocks)
             for block in self.blocks:
                 block.build_block()
@@ -180,19 +184,104 @@ class ValueNetworkDense(ValueFunctionBase):
         return x
 
 
-class ValuePolicyNetworkDenseShared(ValueNetworkDense):
+class ValuePolicyNetworkDense(ValueFunctionBase):
+    def __init__(self,
+                 hidden_config,
+                 n_actions,
+                 gamma,
+                 optimizer=None,
+                 n_steps=1):
+        """Policy+Value function without shared parameters
+        """
+        ValueFunctionBase.__init__(self, gamma, optimizer)
 
-    def build_network(self, hidden_config, n_outputs):
+        self.n_steps = n_steps
+        self.build_network(hidden_config, n_actions)
+        if optimizer is not None:
+            self.optimizer.setup(self)
+
+    def build_network(self, hidden_config, n_actions):
+        """Build a dense network according to the config. specified
+        """
+        with self.init_scope():
+            final_config = dict(hidden_config)
+            final_config.update(
+                dict(layer_sizes=[n_actions], activation="identity"))
+            actor_blocks = [
+                DenseBlock(params=hidden_config),
+                DenseBlock(params=final_config)
+            ]
+            self.actor_blocks = chainer.ChainList(*actor_blocks)
+
+            final_config = dict(hidden_config)
+            final_config.update(dict(layer_sizes=[1], activation="identity"))
+            critic_blocks = [
+                DenseBlock(params=hidden_config),
+                DenseBlock(params=final_config)
+            ]
+            self.critic_blocks = chainer.ChainList(*critic_blocks)
+
+            for block in self.actor_blocks:
+                block.build_block()
+
+            for block in self.critic_blocks:
+                block.build_block()
+
+    def forward_partial(self, x, network="both"):
+        x = np.float32(x)
+        blocks = self.actor_blocks if network is "actor" else self.critic_blocks
+        for block in blocks:
+            x = block(x)
+        return x
+
+    def forward(self, x):
+        return (self.policy(x), self.v(x))
+
+    def q(self, states):
+        raise Exception("V not defined for " + str(self.__class__))
+
+    def v(self, states):
+        v = self.forward_partial(states, network="critic")
+        return v
+
+    def policy(self, states):
+        p = self.forward_partial(states, network="actor")
+        return p
+
+
+class ValuePolicyNetworkDenseShared(ValueNetworkDense):
+    """Value function with shared parameters
+
+    TODO: Cache self.forward() call to reuse for v and q
+    """
+
+    def __init__(self,
+                 hidden_config,
+                 n_actions,
+                 gamma,
+                 optimizer=None,
+                 n_steps=1):
+        """Shared Policy+Value function.
+        """
+        ValueFunctionBase.__init__(self, gamma, optimizer)
+        self.n_steps = n_steps
+        self.build_network(hidden_config, n_actions)
+        if optimizer is not None:
+            self.optimizer.setup(self)
+
+    def build_network(self, hidden_config, n_actions):
         """Build a dense network according to the config. specified
         """
         with self.init_scope():
             # Copy the default network configuration (weight initialization)
             final_config = dict(hidden_config)
-            final_config.update(dict(layer_sizes=[n_outputs],
-                                     activation="identity"))
+            final_config.update(
+                dict(output_sizes=[n_actions, 1], activation="identity"))
 
-            blocks = [DenseBlock(params=hidden_config),
-                      SplitOutputDenseBlock(params=final_config)]
+            blocks = [
+                DenseBlock(params=hidden_config),
+                SplitOutputDenseBlock(params=final_config)
+            ]
             self.blocks = chainer.ChainList(*blocks)
             for block in self.blocks:
                 block.build_block()
@@ -205,45 +294,3 @@ class ValuePolicyNetworkDenseShared(ValueNetworkDense):
 
     def policy(self, states):
         return self.forward(states)[0]
-
-
-class ValuePolicyNetworkDense(ValueFunctionBase):
-    def __init__(self,
-                 hidden_config,
-                 output_sizes,
-                 gamma,
-                 optimizer=None,
-                 n_steps=1):
-        """Separate Policy-V-Network with only dense layers
-
-        n_steps: MC parameter for N-Step returns
-        """
-
-        model = self.build_network(hidden_config, output_sizes)
-        self.n_steps = n_steps
-
-        ValueFunctionBase.__init__(self, model, optimizer, gamma)
-
-    def build_network(self, hidden_config, output_sizes):
-        """Build a dense network according to the config. specified
-        """
-        # Copy the default network configuration (weight initialization)
-        assert type(output_sizes) is list
-        models = []
-        for output_size in output_sizes:
-            final_config = dict(hidden_config)
-            final_config.update(dict(layer_sizes=[output_size],
-                                activation="linear"))
-            models.append(Sequential([
-                DenseBlock(params=hidden_config),
-                DenseBlock(params=final_config)]))
-        return models
-
-    def q(self, states):
-        raise Exception("V not defined for " + str(self.__class__))
-
-    def v(self, states):
-        return self.model[-1](states)
-
-    def policy(self, states):
-        return self.model[0](states)
