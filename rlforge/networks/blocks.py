@@ -53,13 +53,6 @@ class NetworkBlock(chainer.Chain, ABC):
         self.layers = []
         self.build_block()
 
-    def clone(self):
-        """Creates an identical network block with the same structure
-        Useful when creating target networks.
-        """
-        raise NotImplementedError()
-        return self.__class__(self.b_params)
-
 
 class DenseBlock(NetworkBlock):
     """Builds a block of dense layers

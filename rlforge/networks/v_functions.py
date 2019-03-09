@@ -146,6 +146,8 @@ class ValueFunctionBase(chainer.Chain):
     def policy(self, states):
         raise Exception("Policy not defined for " + str(self.__class__))
 
+    def clone(self):
+        return self.copy("copy")
 
 class ValueNetworkDense(ValueFunctionBase):
     def __init__(self, hidden_config, gamma, optimizer=None, n_steps=1):
@@ -182,6 +184,13 @@ class ValueNetworkDense(ValueFunctionBase):
         for block in self.blocks:
             x = block(x)
         return x
+
+
+"""
+-------------------
+Combined Policy+Value functions for Actor-Critic functions defined below.
+-------------------
+"""
 
 
 class ValuePolicyNetworkDense(ValueFunctionBase):
