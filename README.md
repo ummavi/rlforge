@@ -1,6 +1,6 @@
 # RLForge
 
-RLForge is a project to *quickly* and *cleanly* implement popular RL algorithms from literature as well as prototype new ones. Algorithms in RLForge are implemented using TensorFlow Eager but should be very easily modified to use libraries like PyTorch or Chainer. 
+RLForge is a project to *quickly* and *cleanly* implement popular RL algorithms from literature as well as prototype new ones. Algorithms in RLForge are implemented using Chainer but should be very easily modified to use libraries like PyTorch or Tensorflow Eager. 
 
 
 This framework is inspired by [ChainerRL](https://github.com/chainer/chainerrl) and [OpenAI baselines](https://github.com/openai/baselines) and is an attempt to modularize the many components of an RL system so they can be combined in a simple, readable way without excessive code duplication. This is attempted through the use of [Mixins](https://en.wikipedia.org/wiki/Mixin) where each "feature" is implemented in its own encapsulated way and is automatically used by the agent as soon as it's added as a base class.
