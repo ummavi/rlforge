@@ -1,7 +1,7 @@
+import chainer
 import numpy as np
-import tensorflow as tf
-tf.enable_eager_execution()
 
+import chainer.functions as F
 from rlforge.agents.base_agent import BaseAgent
 from rlforge.modules.policies import DistributionalPolicyMX
 from rlforge.modules.experience_replay import ExperienceReplayMX
@@ -23,9 +23,9 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
     """
 
     def __init__(self,
-                 env,
+                 environment,
                  q_function,
-                 policy_learning_rate,
+                 model_learning_rate,
                  replay_buffer_size,
                  target_network_update_freq,
                  minibatch_size=32,
@@ -39,13 +39,14 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
                  n_atoms=51,
                  v_min=0,
                  v_max=200,
+                 optimizer=None,
                  experiment=None):
 
         self.network = q_function
         self.gamma = gamma
         self.ts_start_learning = ts_start_learning
 
-        BaseAgent.__init__(self, env, experiment)
+        BaseAgent.__init__(self, environment, experiment)
         ExperienceReplayMX.__init__(self, replay_buffer_size, minibatch_size)
         TargetNetworkMX.__init__(self, target_network_update_freq)
         DistributionalPolicyMX.__init__(
@@ -61,7 +62,12 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
         self.delta_z = (v_max - v_min) / float(n_atoms - 1)
         self.z = np.linspace(v_min, v_max, n_atoms)
 
-        self.opt = tf.train.AdamOptimizer(policy_learning_rate)
+        if optimizer is None:
+            self.optimizer = chainer.optimizers.RMSpropGraves(
+                model_learning_rate)
+            self.optimizer = self.optimizer.setup(self.network)
+        else:
+            self.optimizer = optimizer
 
         # DQN trains after every step so add it to the post_episode hook
         self.post_step_hooks.append(self.learn)
@@ -74,7 +80,7 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
         """
         batch_size = len(state_ns)
         # p = self.atom_probabilities(state_ns)
-        p = tf.nn.softmax(self.target_network(state_ns))
+        p = F.softmax(self.target_network(state_ns)).array
 
         q_s_n = np.dot(p, np.transpose(self.z))
         assert q_s_n.shape == (batch_size, self.env.n_actions)
@@ -121,13 +127,12 @@ class CategoricalDQN(DistributionalPolicyMX, ExperienceReplayMX,
 
         m = self.categorical_projection(state_ns, rewards, is_not_terminal)
 
-        with tf.GradientTape() as tape:
-            logp = tf.nn.log_softmax(self.network(states))
-            a_mask = tf.expand_dims(
-                tf.one_hot(actions, self.env.n_actions), axis=2)
-            a_mask = tf.tile(a_mask, [1, 1, self.n_atoms])
-            logp_selected = tf.reduce_sum(logp * a_mask, axis=1)
-            losses = tf.reduce_mean(-tf.reduce_sum(m * logp_selected, axis=-1))
+        logp = F.log_softmax(self.network(states))
+        a_mask = np.expand_dims(one_hot(actions, self.env.n_actions), axis=2)
+        a_mask = np.tile(a_mask, [1, 1, self.n_atoms])
+        logp_selected = F.sum(logp * a_mask, axis=1)
+        losses = F.mean(-F.sum(m * logp_selected, axis=-1))
 
-            grads = tape.gradient(losses, self.network.trainable_weights)
-            self.opt.apply_gradients(zip(grads, self.network.trainable_weights))
+        self.network.cleargrads()
+        losses.backward()
+        self.optimizer.update()

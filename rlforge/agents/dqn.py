@@ -30,7 +30,7 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,
     """
 
     def __init__(self,
-                 env,
+                 environment,
                  q_function,
                  replay_buffer_size,
                  target_network_update_freq,
@@ -51,7 +51,7 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,
         self.gamma = gamma
         self.ts_start_learning = ts_start_learning
 
-        BaseAgent.__init__(self, env, experiment)
+        BaseAgent.__init__(self, environment, experiment)
         ExperienceReplayMX.__init__(self, replay_buffer_size, minibatch_size)
         TargetNetworkMX.__init__(self, target_network_update_freq)
         EpsilonGreedyPolicyMX.__init__(
