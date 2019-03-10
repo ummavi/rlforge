@@ -1,21 +1,23 @@
+import os
+import random
+import chainer
 import numpy as np
-import tensorflow as tf
-
-tf.enable_eager_execution()
 
 from rlforge.environments.environment import GymEnv
-from rlforge.common.value_functions import ValuePolicyNetworkDense
-from rlforge.agents.a2c import A2CAgent
+from rlforge.networks.v_functions import ValuePolicyNetworkDense
+from rlforge.agents.a2c import A2CDiscreteAgent
 from rlforge.modules.sil import SILMX
 
 
-class A2CSILAgent(SILMX, A2CAgent):
-    def __init__(self, env, model, model_learning_rate, a2c_value_coeff, gamma,
-                 entropy_coeff, n_workers, sil_buffer_size, sil_minibatch_size,
-                 sil_n_train_steps, sil_value_coeff):
+class A2CSILAgent(SILMX, A2CDiscreteAgent):
+    def __init__(self, environment, model, model_learning_rate,
+                 a2c_value_coeff, gamma, entropy_coeff, n_workers,
+                 sil_buffer_size, sil_minibatch_size, sil_n_train_steps,
+                 sil_value_coeff, experiment=None):
 
-        A2CAgent.__init__(self, env, model, model_learning_rate,
-                          a2c_value_coeff, gamma, entropy_coeff, n_workers)
+        A2CDiscreteAgent.__init__(self, environment=environment, model=model,model_learning_rate=model_learning_rate,
+                          v_function_coeff=a2c_value_coeff,gamma=gamma, entropy_coeff=entropy_coeff, n_workers=n_workers,
+                          experiment=experiment)
 
         SILMX.__init__(
             self,
@@ -63,14 +65,15 @@ def train_example(env_name, seed, gamma, activation, model_layer_sizes,
                   n_steps, entropy_coeff, n_workers, n_train_episodes):
     env = GymEnv(env_name)
 
+    random.seed(seed)
     np.random.seed(seed)
-    tf.set_random_seed(seed)
     env.env.seed(seed)
+    os.environ['CHAINER_SEED'] = str(seed)
 
     network_config = dict(layer_sizes=model_layer_sizes, activation=activation)
-    output_sizes = [env.n_actions, 1]
+    n_actions = env.n_actions
     model = ValuePolicyNetworkDense(
-        network_config, output_sizes, gamma, n_steps=n_steps)
+        network_config, n_actions, gamma, n_steps=n_steps)
 
     agent = A2CSILAgent(
         env,

@@ -202,6 +202,8 @@ class ValuePolicyNetworkDense(ValueFunctionBase):
                  n_steps=1):
         """Policy+Value function without shared parameters
         """
+        assert type(n_actions) is int
+        assert type(hidden_config) is dict
         ValueFunctionBase.__init__(self, gamma, optimizer)
 
         self.n_steps = n_steps
@@ -272,6 +274,8 @@ class ValuePolicyNetworkDenseShared(ValueNetworkDense):
                  n_steps=1):
         """Shared Policy+Value function.
         """
+        assert type(n_actions) is int
+        assert type(hidden_config) is dict
         ValueFunctionBase.__init__(self, gamma, optimizer)
         self.n_steps = n_steps
         self.build_network(hidden_config, n_actions)
