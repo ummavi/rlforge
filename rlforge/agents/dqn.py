@@ -1,6 +1,8 @@
 import numpy as np
-import tensorflow as tf
-tf.enable_eager_execution()
+
+import chainer
+from chainer import functions as F
+from functools import partial
 
 from rlforge.agents.base_agent import BaseAgent
 from rlforge.modules.policies import EpsilonGreedyPolicyMX
@@ -28,7 +30,7 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,
     """
 
     def __init__(self,
-                 env,
+                 environment,
                  q_function,
                  replay_buffer_size,
                  target_network_update_freq,
@@ -43,12 +45,13 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,
                  experiment=None):
 
         self.network = q_function
-        self.network.set_loss_fn(tf.losses.huber_loss)
+        loss_fn = partial(F.huber_loss, delta=1.0)
+        self.network.set_loss_fn(loss_fn)
 
         self.gamma = gamma
         self.ts_start_learning = ts_start_learning
 
-        BaseAgent.__init__(self, env, experiment)
+        BaseAgent.__init__(self, environment, experiment)
         ExperienceReplayMX.__init__(self, replay_buffer_size, minibatch_size)
         TargetNetworkMX.__init__(self, target_network_update_freq)
         EpsilonGreedyPolicyMX.__init__(
@@ -79,10 +82,10 @@ class DQNAgent(EpsilonGreedyPolicyMX, ExperienceReplayMX, TargetNetworkMX,
         rewards, is_not_terminal = np.float32(rewards), np.float32(
             np.invert(dones))
 
-        q_stars = tf.reduce_max(self.target_network(state_ns), axis=-1)
+        q_stars = F.max(self.target_network(state_ns), axis=-1)
         q_targets = rewards + (self.gamma * q_stars * is_not_terminal)
 
         preds, losses = self.network.update_q(states, actions, q_targets)
 
-        self.logger.log_scalar("step_losses", float(losses))
-        self.logger.log_scalar("step_mean_q", np.mean(preds))
+        self.logger.log_scalar("step_losses", float(losses.array))
+        self.logger.log_scalar("step_mean_q", np.mean(preds.array))

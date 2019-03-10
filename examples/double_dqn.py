@@ -1,7 +1,7 @@
+import os
+import random
+import chainer
 import numpy as np
-import tensorflow as tf
-
-tf.enable_eager_execution()
 
 from rlforge.agents.double_dqn import DoubleDQNAgent
 from rlforge.environments.environment import GymEnv
@@ -33,24 +33,28 @@ def config():
 
 @ex.automain
 def train_example(env_name, seed, gamma, policy_layer_sizes,
-                  policy_learning_rate, activation,
-                  replay_buffer_size, target_network_update_freq,
-                  eps, minibatch_size, n_train_episodes):
+                  policy_learning_rate, activation, replay_buffer_size,
+                  target_network_update_freq, eps, minibatch_size,
+                  n_train_episodes):
     env = GymEnv(env_name)
 
+    random.seed(seed)
     np.random.seed(seed)
-    tf.set_random_seed(seed)
     env.env.seed(seed)
+    os.environ['CHAINER_SEED'] = str(seed)
 
     q_config = dict(layer_sizes=policy_layer_sizes, activation=activation)
-    q_opt = tf.train.AdamOptimizer(policy_learning_rate)
-    q_network = QNetworkDense(env.n_actions, q_config, q_opt, gamma)
+    q_opt = chainer.optimizers.RMSpropGraves(policy_learning_rate)
+    q_network = QNetworkDense(q_config, env.n_actions, gamma, optimizer=q_opt)
 
-    agent = DoubleDQNAgent(env, q_network,
-                           replay_buffer_size=replay_buffer_size,
-                           target_network_update_freq=target_network_update_freq,
-                           gamma=gamma, eps=eps,
-                           minibatch_size=minibatch_size,
-                           experiment=ex)
+    agent = DoubleDQNAgent(
+        env,
+        q_network,
+        replay_buffer_size=replay_buffer_size,
+        target_network_update_freq=target_network_update_freq,
+        gamma=gamma,
+        eps=eps,
+        minibatch_size=minibatch_size,
+        experiment=ex)
 
     agent.interact(n_train_episodes, show_progress=True)

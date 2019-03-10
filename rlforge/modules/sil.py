@@ -1,6 +1,7 @@
+import chainer
 import numpy as np
-import tensorflow as tf
-tf.enable_eager_execution()
+
+import chainer.functions as F
 
 from rlforge.common.utils import Episode, discounted_returns
 
@@ -54,11 +55,17 @@ class SILMX(SILExperienceReplayMX, BaseMixin):
 
     Paper summary link will be added here shortly.
     """
-    def __init__(self, sil_buffer_size, sil_minibatch_size, sil_n_train_steps,
-                 sil_value_coeff, sil_run_every=1):
+
+    def __init__(self,
+                 sil_buffer_size,
+                 sil_minibatch_size,
+                 sil_n_train_steps,
+                 sil_value_coeff,
+                 sil_run_every=1):
 
         BaseMixin.__init__(self)
-        SILExperienceReplayMX.__init__(self, sil_buffer_size, sil_minibatch_size)
+        SILExperienceReplayMX.__init__(self, sil_buffer_size,
+                                       sil_minibatch_size)
 
         self.sil_run_every = sil_run_every
         self.sil_value_coeff = sil_value_coeff
@@ -74,18 +81,20 @@ class SILMX(SILExperienceReplayMX, BaseMixin):
         batch: sil_minibatch_size of (s,a,R) tuples.
         """
         states, actions, returns = batch
-        with tf.GradientTape() as tape:
-            numerical_prefs, v_sts = self.model(states)
-            logprobs = self.logprobs(numerical_prefs, actions)
+        numerical_prefs, v_sts = self.model(states)
+        logprobs = self.logprobs(numerical_prefs, actions)
+        returns = np.float32(returns)
 
-            clipped_returns = tf.maximum(returns - v_sts, 0.0)
+        clipped_returns = F.maximum(returns - v_sts, np.zeros_like(returns))
 
-            loss_sil_policy = -tf.reduce_sum(logprobs * clipped_returns)
-            loss_sil_value = 0.5*tf.reduce_sum(tf.square(clipped_returns))
+        loss_sil_policy = -F.sum(logprobs * clipped_returns)
+        loss_sil_value = 0.5 * F.sum(F.square(clipped_returns))
 
-            losses = loss_sil_policy + self.sil_value_coeff * loss_sil_value
-            grads = tape.gradient(losses, self.model.trainable_weights)
-            self.opt.apply_gradients(zip(grads, self.model.trainable_weights))
+        losses = loss_sil_policy + self.sil_value_coeff * loss_sil_value
+
+        self.model.cleargrads()
+        losses.backward()
+        self.optimizer.update()
 
     def learn_sil(self, global_episode_ts, episode_data):
         """Perform one round of SIL training composed of

@@ -1,11 +1,13 @@
+import chainer
 import numpy as np
-import tensorflow as tf
+
+from chainer import functions as F
 
 from rlforge.agents.base_agent import BaseAgent
 from rlforge.modules.policies import SoftmaxPolicyMX, GaussianPolicyMX
 
 
-class A2CAgent(SoftmaxPolicyMX, BaseAgent):
+class A2CAgent(BaseAgent):
     """
     A2C paper implementation as described in
     (https://blog.openai.com/baselines-acktr-a2c/
@@ -22,13 +24,14 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
     """
 
     def __init__(self,
-                 env,
+                 environment,
                  model,
                  model_learning_rate,
                  v_function_coeff,
                  gamma=0.9,
                  entropy_coeff=3,
-                 n_workers=2, 
+                 n_workers=2,
+                 optimizer=None,
                  experiment=None):
         """
         Parameters:
@@ -37,21 +40,25 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
         v_function_coeff: Coeff. the V-function loss should be scaled by
         experiment [(optional) Sacred expt]: Logs metrics to sacred as well
         """
-        BaseAgent.__init__(self, env, experiment)
-        SoftmaxPolicyMX.__init__(self)
+        BaseAgent.__init__(self, environment, experiment)
 
         self.gamma = gamma
         self.model = model
         self.n_workers = n_workers
         self.entropy_coeff = entropy_coeff
 
-        self.opt = tf.train.AdamOptimizer(model_learning_rate)
+        if optimizer is None:
+            self.optimizer = chainer.optimizers.RMSpropGraves(
+                    model_learning_rate)
+            self.optimizer = self.optimizer.setup(self.model)
+            self.model.cleargrads()  # Clear gradients for first round
+
+        else:
+            self.optimizer = optimizer
 
         self.post_episode_hooks.append(self.learn)
 
         self.v_function_coeff = v_function_coeff
-
-        self.acc_grads = None
 
         self.model_list = [self.model]
 
@@ -68,84 +75,50 @@ class A2CAgent(SoftmaxPolicyMX, BaseAgent):
         # Terminal state's value is 0.
         q_sts = np.squeeze(np.float32(np.concatenate((q_sts, [0.0]))))
 
-        with tf.GradientTape() as tape:
-            numerical_prefs, v_sts = self.model(states)
-            numerical_prefs = numerical_prefs[:-1]  # Ignore A_{T}
-            v_sts = tf.squeeze(v_sts)
+        # numerical_prefs, v_sts = self.model(states)
+        numerical_prefs = self.model.policy(states)
+        with chainer.no_backprop_mode():
+            v_sts = self.model.v(states)
+            v_sts = F.squeeze(v_sts).array
 
-            advantage = q_sts - v_sts
-            advantage = tf.stop_gradient(advantage)
+        numerical_prefs = numerical_prefs[:-1]  # Ignore A_{T}
 
-            # Policy Loss
-            logprobs = self.logprobs(numerical_prefs, actions)
-            average_entropy = tf.reduce_mean(
-                self.policy_entropy(numerical_prefs))
+        advantage = q_sts - v_sts
 
-            loss_policy = -tf.reduce_mean(logprobs * advantage[:-1])
-            loss_policy -= self.entropy_coeff * average_entropy
+        # Policy Loss
+        logprobs = self.logprobs(numerical_prefs, actions)
+        average_entropy = F.mean(
+            self.policy_entropy(numerical_prefs))
 
-            # Value loss
-            loss_value = tf.losses.mean_squared_error(q_sts, v_sts)
-            losses = loss_policy + self.v_function_coeff * loss_value
-            grads = tape.gradient(losses, self.model.trainable_weights)
-            # grads, _ = tf.clip_by_global_norm(grads, 40.0)
+        loss_policy = -F.mean(logprobs * advantage[:-1])
+        loss_policy -= self.entropy_coeff * average_entropy
 
-            if self.acc_grads is None:
-                self.acc_grads = grads
-            else:
-                self.acc_grads = [
-                    ag + g for g, ag in zip(grads, self.acc_grads)
-                ]
+        # Value loss
+        loss_value = F.mean_squared_error(q_sts, v_sts)
+        losses = loss_policy + self.v_function_coeff * loss_value
 
-            if (global_episode_ts) % self.n_workers == 0:
-                self.opt.apply_gradients(
-                    zip(self.acc_grads, self.model.trainable_weights))
-                self.acc_grads = None
+        # Create backward and accumulate.
+        losses.backward()
+        if (global_episode_ts) % self.n_workers == 0:
+            # Apply and reset gradients every n_worker steps
+            self.optimizer.update()
+            self.model.cleargrads()
 
         self.logger.log_scalar("episode_average_entropy",
-                               float(average_entropy))
+                               float(average_entropy.array))
         self.logger.log_scalar("episode_average_advantage",
                                np.mean(advantage))
-        self.logger.log_scalar("episode_losses", float(losses))
+        self.logger.log_scalar("episode_losses", float(losses.array))
+
+
+class A2CDiscreteAgent(SoftmaxPolicyMX, A2CAgent):
+    def __init__(self, **kwargs):
+        assert kwargs["environment"].action_space == "discrete"
+        A2CAgent.__init__(self, **kwargs)
+        SoftmaxPolicyMX.__init__(self)
 
 
 class A2CContinuousAgent(GaussianPolicyMX, A2CAgent):
-    """A2C agent for continuous actions using a gaussian
-    policy
-
-    See examples/a2c.py for example agent
-    """
-
-    def __init__(self,
-                 env,
-                 model,
-                 model_learning_rate,
-                 v_function_coeff,
-                 gamma=0.9,
-                 entropy_coeff=3,
-                 n_workers=2,
-                 experiment=None
-                 ):
-        """
-        Parameters:
-        model: A callable model with the final layer being identity.
-        v_function: A callable model of the state-value function
-        v_function_coeff: Coeff. the V-function loss should be scaled by
-        experiment [(optional) Sacred expt]: Logs metrics to sacred as well
-        """
-        BaseAgent.__init__(self, env, experiment)
+    def __init__(self, **kwargs):
+        A2CAgent.__init__(self, **kwargs)
         GaussianPolicyMX.__init__(self)
-
-        self.gamma = gamma
-        self.n_workers = n_workers
-        self.entropy_coeff = entropy_coeff
-
-        self.model = model
-        self.opt = tf.train.AdamOptimizer(model_learning_rate)
-        self.post_episode_hooks.append(self.learn)
-
-        self.v_function_coeff = v_function_coeff
-
-        self.acc_grads = None
-
-        self.model_list = [self.model]
